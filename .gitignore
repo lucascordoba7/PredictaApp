@@ -13,4 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
-mango-old/
+mango-old/*
+.claude/settings.local.json

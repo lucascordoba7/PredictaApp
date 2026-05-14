@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "gh_grep": {
+      "type": "remote",
+      "url": "https://mcp.grep.app"
+    },
+    "web_search": {
+      "type": "remote",
+      "url": "https://mcp.exa.ai"
+    },
+    "open-design": {
+      "type": "local",
+      "command": [
+        "E:\\IA\\OpenDesign\\Open Design release-stable-win\\Open Design.exe",
+        "E:\\IA\\OpenDesign\\Open Design release-stable-win\\resources\\app\\node_modules\\@open-design\\daemon\\dist\\cli.js",
+        "mcp"
+      ],
+      "environment": {
+        "OD_DATA_DIR": "C:\\Users\\Lucas\\AppData\\Roaming\\Open Design\\namespaces\\release-stable-win\\data",
+        "OD_SIDECAR_NAMESPACE": "release-stable-win",
+        "ELECTRON_RUN_AS_NODE": "1"
+      }
+    }
+  }
+}

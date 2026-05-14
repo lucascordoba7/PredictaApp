@@ -1,0 +1,17 @@
+package com.lucas.predictaapp
+
+import android.app.Application
+import com.lucas.predictaapp.data.local.AppDatabase
+import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.repository.NotificationsRepository
+import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+
+class PredictaApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        val db = AppDatabase.getInstance(this)
+        ExpensesRepository.init(db)
+        SubscriptionsRepository.init(db)
+        NotificationsRepository.init(db)
+    }
+}

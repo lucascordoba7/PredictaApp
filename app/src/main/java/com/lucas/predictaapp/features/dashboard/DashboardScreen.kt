@@ -1,0 +1,202 @@
+package com.lucas.predictaapp.features.dashboard
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import com.lucas.predictaapp.features.onboarding.PredictaLogoDice
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lucas.predictaapp.data.local.UserPreferencesRepository
+import com.lucas.predictaapp.data.model.Fixtures
+import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.repository.NotificationsRepository
+import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+import com.lucas.predictaapp.features.dashboard.components.AddGoalCard
+import com.lucas.predictaapp.features.dashboard.components.AvailableNowCard
+import com.lucas.predictaapp.features.dashboard.components.CategorySpendingCard
+import com.lucas.predictaapp.features.dashboard.components.DashboardHeader
+import com.lucas.predictaapp.features.dashboard.components.SectionLabel
+import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
+import com.lucas.predictaapp.features.dashboard.components.ZombiesCard
+import com.lucas.predictaapp.ui.theme.PredictaColors
+import com.lucas.predictaapp.ui.theme.PredictaTypography
+import com.lucas.predictaapp.ui.utils.getDaysToPayday
+import com.lucas.predictaapp.ui.utils.isCurrentMonth
+
+@Composable
+fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
+    val context = LocalContext.current
+    val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
+    val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
+    val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
+    val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
+
+    val name = userSetup?.name ?: Fixtures.user.name
+    val income = userSetup?.income ?: Fixtures.user.monthIncome
+    val paydayDay = userSetup?.paydayDay ?: 1
+    val fixedMonthly = userSetup?.fixedMonthly ?: Fixtures.user.fixedMonthly
+
+    val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
+    val totalSpent = monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount }
+    val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
+    val daysToPayday = getDaysToPayday(paydayDay)
+    val dailyBudget = if (daysToPayday > 0) availableNow / daysToPayday else availableNow
+
+    val zombies = subscriptions.filter { it.zombie }
+    val zombieSaving = zombies.sumOf { it.monthly }
+    val zombieNames = zombies.map { it.service }
+
+    val scope = rememberCoroutineScope()
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PredictaColors.charcoal),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            StaggerCard(0, visible) { TopBar(notificationCount = notifications.count { it.unread }) }
+        }
+        item {
+            StaggerCard(1, visible) {
+                DashboardHeader(
+                    name = name,
+                    score = Fixtures.user.score,
+                    onScoreClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Profile.route) },
+                )
+            }
+        }
+        item {
+            StaggerCard(2, visible) {
+                AvailableNowCard(
+                    availableNow = availableNow,
+                    daysToPayday = daysToPayday,
+                    dailyBudget = dailyBudget,
+                )
+            }
+        }
+        item {
+            StaggerCard(3, visible) {
+                CategorySpendingCard(expenses = monthExpenses, income = income)
+            }
+        }
+        item { StaggerCard(4, visible) { SectionLabel("Tus metas") } }
+        item {
+            StaggerCard(5, visible) { AddGoalCard() }
+        }
+        if (zombies.isNotEmpty()) {
+            item { StaggerCard(6, visible) { SectionLabel("Predicta detectó") } }
+            item {
+                StaggerCard(7, visible) {
+                    ZombiesCard(
+                        count = zombies.size,
+                        services = zombieNames,
+                        monthlySaving = zombieSaving,
+                        onCancel = {},
+                    )
+                }
+            }
+        }
+        if (expenses.isNotEmpty()) {
+            item { StaggerCard(8, visible) { SectionLabel("Actividad reciente") } }
+            item {
+                StaggerCard(9, visible) {
+                    TransactionsCard(
+                        expenses = expenses,
+                        onDelete = { expense -> scope.launch { ExpensesRepository.delete(expense.id) } },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopBar(notificationCount: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PredictaLogoDice(size = 28.dp)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "predicta",
+            style = PredictaTypography.bodyTight.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = PredictaColors.amber,
+                letterSpacing = (-0.5).sp,
+            ),
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        BadgedBox(
+            badge = {
+                if (notificationCount > 0) {
+                    Badge(containerColor = PredictaColors.coral) {
+                        Text(text = notificationCount.toString(), color = PredictaColors.cream, fontSize = 9.sp)
+                    }
+                }
+            },
+        ) {
+            IconButton(onClick = {}) {
+                Icon(
+                    imageVector = Icons.Outlined.Notifications,
+                    contentDescription = "Notificaciones",
+                    tint = PredictaColors.cream60,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StaggerCard(index: Int, visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(durationMillis = 360, delayMillis = index * 80)) +
+            slideInVertically(
+                animationSpec = tween(durationMillis = 360, delayMillis = index * 80),
+                initialOffsetY = { it / 3 },
+            ),
+    ) {
+        content()
+    }
+}
