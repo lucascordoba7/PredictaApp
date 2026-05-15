@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,7 @@ data class MenuItem(
     val subtitle: String? = null,
     val badge: String? = null,
     val route: String? = null,
+    val disabled: Boolean = false,
 )
 
 @Composable
@@ -73,7 +76,8 @@ private fun MenuItemRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .alpha(if (item.disabled) 0.45f else 1f)
+            .clickable(enabled = !item.disabled, onClick = onClick)
             .padding(horizontal = PredictaDimensions.Spacing.base, vertical = 14.dp),
     ) {
         Icon(
@@ -100,16 +104,31 @@ private fun MenuItemRow(
                 )
             }
         }
-        if (item.badge != null) {
-            BadgeCount(item.badge)
+        if (item.disabled) {
+            SoonBadge()
+        } else {
+            if (item.badge != null) BadgeCount(item.badge)
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = PredictaColors.cream12,
+                modifier = Modifier.size(20.dp),
+            )
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = PredictaColors.cream12,
-            modifier = Modifier.size(20.dp),
-        )
     }
+}
+
+@Composable
+private fun SoonBadge() {
+    Text(
+        text = "PRONTO",
+        style = PredictaTypography.monoCap,
+        color = PredictaColors.cream35,
+        modifier = Modifier
+            .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
+            .background(PredictaColors.cream.copy(alpha = 0.06f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 @Composable
@@ -130,15 +149,9 @@ private fun BadgeCount(
 
 @Composable
 private fun MenuDivider() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 54.dp),
-    ) {
-        androidx.compose.foundation.layout.Spacer(
-            modifier = Modifier
-                .weight(1f)
-                .background(PredictaColors.line),
-        )
-    }
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 54.dp),
+        color = PredictaColors.line,
+        thickness = 0.5.dp,
+    )
 }

@@ -43,6 +43,12 @@ import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 
+private val monthsEs = listOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+private fun previousMonthName(): String {
+    val prevIndex = (java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) - 1 + 12) % 12
+    return monthsEs[prevIndex]
+}
+
 private val sparklinePoints = listOf(
     Offset(0f, 26f), Offset(28f, 22f), Offset(56f, 28f), Offset(84f, 16f),
     Offset(112f, 20f), Offset(140f, 12f), Offset(168f, 15f), Offset(196f, 10f),
@@ -134,7 +140,7 @@ private fun DeltaBadge(delta: Int) {
                 )
                 Spacer(modifier = Modifier.width(2.dp))
                 Text(
-                    text = "+$delta vs abril",
+                    text = "+$delta vs ${previousMonthName()}",
                     style = PredictaTypography.monoCap.copy(
                         color = PredictaColors.green,
                         fontWeight = FontWeight.SemiBold,

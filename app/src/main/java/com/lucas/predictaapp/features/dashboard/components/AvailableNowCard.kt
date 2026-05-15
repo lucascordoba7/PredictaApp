@@ -1,7 +1,9 @@
 package com.lucas.predictaapp.features.dashboard.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.ui.theme.PredictaColors
+import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.utils.fmtArs
 
@@ -34,10 +37,23 @@ fun AvailableNowCard(
     }
     val paydayColor = if (daysToPayday <= 3) PredictaColors.pending else PredictaColors.cream35
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp),
+            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
+            .background(PredictaColors.surface)
+            .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.card))
+            .padding(horizontal = PredictaDimensions.Spacing.base, vertical = PredictaDimensions.Spacing.md),
+    ) {
+        Text(
+            text = "HOY TENÉS",
+            style = PredictaTypography.monoCap.copy(fontSize = 9.sp, letterSpacing = 1.sp),
+            color = PredictaColors.cream35,
+            modifier = Modifier.padding(bottom = PredictaDimensions.Spacing.sm),
+        )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StatItem(
@@ -64,6 +80,7 @@ fun AvailableNowCard(
             valueColor = paydayColor,
             modifier = Modifier.weight(1f),
         )
+    }
     }
 }
 

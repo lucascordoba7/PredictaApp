@@ -22,6 +22,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,13 +35,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.Fixtures
+import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.repository.MIN_EXPENSES_FOR_PERSONALITY
 import com.lucas.predictaapp.data.repository.NotificationsRepository
+import com.lucas.predictaapp.data.repository.PersonalityRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.features.dashboard.components.HealthCard
 import com.lucas.predictaapp.ui.navigation.Screen
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
+import com.lucas.predictaapp.ui.utils.isCurrentMonth
 
 @Composable
 fun ProfileScreen(
@@ -49,11 +54,42 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
-    val user = Fixtures.user.copy(name = userSetup?.name ?: Fixtures.user.name)
+    val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val scrollState = rememberScrollState()
     var showSignOutDialog by remember { mutableStateOf(false) }
+
+    val income = userSetup?.income ?: Fixtures.user.monthIncome
+    val fixedMonthly = userSetup?.fixedMonthly ?: Fixtures.user.fixedMonthly
+    val monthExpenses = remember(expenses) { expenses.filter { isCurrentMonth(it.dateMillis) } }
+    val totalSpent = remember(monthExpenses) { monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount } }
+    val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
+
+    val user = Fixtures.user.copy(
+        name = userSetup?.name ?: Fixtures.user.name,
+        email = userSetup?.email ?: Fixtures.user.email,
+        monthIncome = income,
+        monthSpent = totalSpent,
+        availableNow = availableNow,
+    )
+
+    var personalityState by remember {
+        mutableStateOf<PersonalityBannerState>(PersonalityBannerState.Loading)
+    }
+
+    LaunchedEffect(monthExpenses.size, totalSpent) {
+        personalityState = if (monthExpenses.size < MIN_EXPENSES_FOR_PERSONALITY) {
+            PersonalityBannerState.Insufficient(
+                transactionCount = monthExpenses.size,
+                requiredCount = MIN_EXPENSES_FOR_PERSONALITY,
+            )
+        } else {
+            PersonalityBannerState.Loading
+            val personality = PersonalityRepository.analyze(monthExpenses, income, fixedMonthly)
+            PersonalityBannerState.Ready(personality)
+        }
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -67,11 +103,15 @@ fun ProfileScreen(
 
         ProfileHeader(user = user)
 
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.lg))
+        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
+
+        ProfileStats(user = user)
+
+        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
 
         PersonalityBanner(
-            state = PersonalityBannerState.Ready(user.personality),
-            onPress = {},
+            state = personalityState,
+            onPress = null,
         )
 
         Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
@@ -98,6 +138,7 @@ fun ProfileScreen(
                     icon = Icons.Default.Star,
                     label = "Score crediticio",
                     subtitle = "${user.score}/100",
+                    disabled = true,
                 ),
             ),
             onItemClick = { item -> item.route?.let { onNavigate(it) } },
@@ -111,16 +152,18 @@ fun ProfileScreen(
                 MenuItem(
                     icon = Icons.Default.Notifications,
                     label = "Notificaciones",
-                    badge = "${notifications.count { it.unread }}",
+                    badge = notifications.count { it.unread }.takeIf { it > 0 }?.toString(),
                     route = Screen.Notifications.route,
                 ),
                 MenuItem(
                     icon = Icons.Default.Person,
                     label = "Datos personales",
+                    disabled = true,
                 ),
                 MenuItem(
                     icon = Icons.Default.Settings,
                     label = "Configuración",
+                    disabled = true,
                 ),
             ),
             onItemClick = { item -> item.route?.let { onNavigate(it) } },

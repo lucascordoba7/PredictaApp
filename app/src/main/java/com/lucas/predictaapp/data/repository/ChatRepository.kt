@@ -45,6 +45,20 @@ FORMATO E — no financiero:
 Categorías válidas (usá EXACTAMENTE una de estas, sin variantes):
 ${expenseCategories.joinToString("|")}
 
+Guía de categorías con ejemplos de comercios (para ayudarte a clasificar):
+- Salidas: restaurantes, parrillas, bares, cafés, boliches, teatro, cine, recitales.
+  Ej: Don Julio, El Federal, La Cabrera, Osaka, Chila, Tegui, Cafe Martinez, Starbucks, La Biela, Gran Bar Danzón, Victoria Brown, cualquier parrilla/resto/bar
+- Delivery: Rappi, PedidosYa, Glovo, apps de delivery de comida
+- Supermercados: Carrefour, Coto, Jumbo, Disco, Día, Vea, La Anónima, Walmart, Lidl
+- Transporte: Uber, Cabify, DiDi, InDrive, SUBE, trenes, colectivo, peaje
+- Salud: farmacias, médicos, clínicas, Farmacity, laboratorios
+- Tecnología: Apple, Samsung, Mercado Libre (tech), Amazon, tiendas de electrónica
+- Suscripciones: Netflix, Spotify, Disney+, HBO, servicios digitales recurrentes
+- Ropa: Zara, H&M, Nike, Adidas, shoppings, tiendas de indumentaria
+- Educación: universidades, cursos, libros, Udemy, Coursera
+
+Regla clave: si el comercio es claramente un restaurant/bar/café/parrilla aunque no lo conozcas, usá la categoría de Salidas (o equivalente en la lista), nunca Supermercados.
+
 Modismos argentinos de montos (convertí antes de poner en "amount"):
 - "luca" / "lucas" = 1000 (ej: "10 lucas" → 10000, "media luca" → 500)
 - "palo" / "palos" = 1.000.000 (ej: "2 palos" → 2000000)
@@ -69,6 +83,7 @@ Reglas:
 - Usás "vos", español rioplatense natural
 - 1 solo JSON, sin texto extra
 - La categoría debe ser exactamente una de la lista
+- Si en mensajes anteriores ya se aclaró el comercio o el monto, usá esa info para completar el gasto sin volver a preguntar
 """.trimIndent()
 
 object ChatRepository {
@@ -78,12 +93,13 @@ object ChatRepository {
     suspend fun extract(
         userText: String,
         expenseCategories: List<String> = ExpenseCategories.expenseNames,
-    ): Pair<ExpenseExtraction, String?> {
+        history: List<ChatMessage> = emptyList(),
+    ): Triple<ExpenseExtraction, String?, String> {
         return try {
-            callGroq(userText, expenseCategories)
+            callGroq(userText, expenseCategories, history)
         } catch (e: Exception) {
             Log.w(TAG, "Groq call failed", e)
-            ExpenseExtraction.Unknown to "No pude conectarme. Intentá de nuevo."
+            Triple(ExpenseExtraction.Unknown, "No pude conectarme. Intentá de nuevo.", "")
         }
     }
 
@@ -119,16 +135,16 @@ object ChatRepository {
     private suspend fun callGroq(
         userText: String,
         expenseCategories: List<String>,
-    ): Pair<ExpenseExtraction, String?> {
+        history: List<ChatMessage>,
+    ): Triple<ExpenseExtraction, String?, String> {
         val today = LocalDate.now().format(isoFmt)
+        val messages = buildList {
+            add(ChatMessage("system", buildSystemPrompt(today, expenseCategories)))
+            addAll(history)
+            add(ChatMessage("user", userText))
+        }
         val response = ApiProvider.groqApi.chatCompletion(
-            ChatCompletionRequest(
-                model = MODEL,
-                messages = listOf(
-                    ChatMessage("system", buildSystemPrompt(today, expenseCategories)),
-                    ChatMessage("user", userText),
-                ),
-            ),
+            ChatCompletionRequest(model = MODEL, messages = messages),
         )
         val raw = response.choices.firstOrNull()?.message?.content
             ?: throw IllegalStateException("Empty response")
@@ -140,7 +156,7 @@ object ChatRepository {
         val obj = json.parseToJsonElement(cleaned).jsonObject
         val kind = obj["kind"]?.jsonPrimitive?.contentOrNull ?: "unknown"
 
-        return when (kind) {
+        val result: Pair<ExpenseExtraction, String?> = when (kind) {
             "expense" -> parseExpenseItem(obj) to null
             "income" -> {
                 val merchant = obj["merchant"]?.jsonPrimitive?.contentOrNull ?: "Ingreso"
@@ -171,5 +187,6 @@ object ChatRepository {
                 ExpenseExtraction.Unknown to reply
             }
         }
+        return Triple(result.first, result.second, raw)
     }
 }

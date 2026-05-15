@@ -67,6 +67,7 @@ import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.ExpenseExtraction
 import com.lucas.predictaapp.data.model.ExpenseSuggestion
+import com.lucas.predictaapp.data.remote.ChatMessage
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ChatRepository
 import com.lucas.predictaapp.features.onboarding.PredictaLogoDice
@@ -109,6 +110,7 @@ private val starters = listOf(
 @Composable
 fun ChatScreen() {
     val messages = remember { mutableStateListOf<ChatMsg>() }
+    val conversationHistory = remember { mutableStateListOf<ChatMessage>() }
     var inputText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -136,7 +138,11 @@ fun ChatScreen() {
         messages.add(ChatMsg.Thinking)
 
         scope.launch {
-            val (extraction, unknownReply) = ChatRepository.extract(text, expenseCategoryNames)
+            val historySnapshot = conversationHistory.takeLast(10)
+            val (extraction, unknownReply, rawResponse) = ChatRepository.extract(text, expenseCategoryNames, historySnapshot)
+            conversationHistory.add(ChatMessage("user", text))
+            if (rawResponse.isNotEmpty()) conversationHistory.add(ChatMessage("assistant", rawResponse))
+
             val thinkingIdx = messages.indexOfLast { it is ChatMsg.Thinking }
             if (thinkingIdx >= 0) messages.removeAt(thinkingIdx)
 

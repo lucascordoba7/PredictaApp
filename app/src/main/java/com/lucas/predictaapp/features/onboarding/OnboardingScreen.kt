@@ -142,17 +142,12 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 )
 
                 is Step.Setup -> SetupContent(
-                    name = regName,
+                    regName = regName,
+                    regEmail = regEmail,
                     onBack = {
                         goingForward = false
                         step = Step.Register
                     },
-                    onComplete = { income, paydayDay, fixedMonthly ->
-                        onComplete()
-                        // UserPreferencesRepository.completeOnboarding is called inside SetupContent
-                    },
-                    regName = regName,
-                    regEmail = regEmail,
                     onFinish = onComplete,
                 )
 
@@ -273,17 +268,17 @@ private fun WelcomeContent(
 
         Text(
             text = "Ya tengo cuenta",
-            style = PredictaTypography.monoCap,
-            color = PredictaColors.cream35,
+            style = PredictaTypography.body,
+            color = PredictaColors.amber,
             modifier = Modifier
                 .clickable(onClick = onSignIn)
-                .padding(PredictaDimensions.Spacing.sm),
+                .padding(horizontal = PredictaDimensions.Spacing.base, vertical = PredictaDimensions.Spacing.md),
         )
 
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
 
         // Step dots
-        StepDots(totalSteps = 2, activeStep = 0)
+        StepDots(totalSteps = 3, activeStep = 0)
 
         Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
     }
@@ -397,7 +392,7 @@ private fun RegisterContent(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
-        StepDots(totalSteps = 2, activeStep = 1)
+        StepDots(totalSteps = 3, activeStep = 1)
         Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
     }
 }
@@ -407,11 +402,9 @@ private fun RegisterContent(
 // ─────────────────────────────────────────────────────────
 @Composable
 private fun SetupContent(
-    name: String,
     regName: String,
     regEmail: String,
     onBack: () -> Unit,
-    onComplete: (income: Int, paydayDay: Int, fixedMonthly: Int) -> Unit,
     onFinish: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -530,6 +523,8 @@ private fun SetupContent(
                 }
             }
         }
+        Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
+        StepDots(totalSteps = 3, activeStep = 2)
         Spacer(Modifier.height(PredictaDimensions.Spacing.xxl))
     }
 }
@@ -676,7 +671,7 @@ private fun BackButton(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {

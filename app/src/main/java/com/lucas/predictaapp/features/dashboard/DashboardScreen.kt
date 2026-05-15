@@ -115,7 +115,12 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            StaggerCard(0, visible) { TopBar(notificationCount = notifications.count { it.unread }) }
+            StaggerCard(0, visible) {
+                TopBar(
+                    notificationCount = notifications.count { it.unread },
+                    onNotificationsClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Notifications.route) },
+                )
+            }
         }
         item {
             StaggerCard(1, visible) {
@@ -180,7 +185,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
 }
 
 @Composable
-private fun TopBar(notificationCount: Int) {
+private fun TopBar(notificationCount: Int, onNotificationsClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,7 +213,7 @@ private fun TopBar(notificationCount: Int) {
                 }
             },
         ) {
-            IconButton(onClick = {}) {
+            IconButton(onClick = onNotificationsClick) {
                 Icon(
                     imageVector = Icons.Outlined.Notifications,
                     contentDescription = "Notificaciones",
@@ -224,9 +229,9 @@ private fun TopBar(notificationCount: Int) {
 private fun StaggerCard(index: Int, visible: Boolean, content: @Composable () -> Unit) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(durationMillis = 360, delayMillis = index * 80)) +
+        enter = fadeIn(tween(durationMillis = 360, delayMillis = index * 55)) +
             slideInVertically(
-                animationSpec = tween(durationMillis = 360, delayMillis = index * 80),
+                animationSpec = tween(durationMillis = 360, delayMillis = index * 55),
                 initialOffsetY = { it / 3 },
             ),
     ) {

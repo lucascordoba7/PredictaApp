@@ -1,5 +1,11 @@
 package com.lucas.predictaapp.features.profile
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
@@ -18,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -34,7 +42,8 @@ import com.lucas.predictaapp.ui.theme.PredictaTypography
 
 sealed class PersonalityBannerState {
     data class Ready(val personality: Personality) : PersonalityBannerState()
-    data class Insufficient(val transactionCount: Int, val requiredCount: Int = 10) : PersonalityBannerState()
+    data class Insufficient(val transactionCount: Int, val requiredCount: Int = 5) : PersonalityBannerState()
+    data object Loading : PersonalityBannerState()
 }
 
 @Composable
@@ -45,6 +54,7 @@ fun PersonalityBanner(
     when (state) {
         is PersonalityBannerState.Ready -> ReadyBanner(state.personality, onPress)
         is PersonalityBannerState.Insufficient -> InsufficientBanner(state.transactionCount, state.requiredCount)
+        is PersonalityBannerState.Loading -> LoadingBanner()
     }
 }
 
@@ -278,6 +288,78 @@ private fun InsufficientBanner(transactionCount: Int, requiredCount: Int) {
                     ),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun LoadingBanner() {
+    val infinite = rememberInfiniteTransition(label = "shimmer")
+    val alpha by infinite.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "shimmer_alpha",
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.dp, PredictaColors.cream.copy(alpha = 0.06f), RoundedCornerShape(20.dp))
+            .background(PredictaColors.surface)
+            .padding(20.dp),
+    ) {
+        Column {
+            // "TU PERSONALIDAD" label placeholder
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(PredictaColors.cream.copy(alpha = alpha * 0.25f)),
+            )
+            Spacer(Modifier.height(18.dp))
+            // Name placeholder
+            Box(
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(PredictaColors.cream.copy(alpha = alpha * 0.18f)),
+            )
+            Spacer(Modifier.height(10.dp))
+            // Description line 1
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(PredictaColors.cream.copy(alpha = alpha * 0.12f)),
+            )
+            Spacer(Modifier.height(6.dp))
+            // Description line 2
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.65f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(PredictaColors.cream.copy(alpha = alpha * 0.12f)),
+            )
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider(color = PredictaColors.cream.copy(alpha = 0.06f), thickness = 1.dp)
+            Spacer(Modifier.height(14.dp))
+            // Stat chip placeholder
+            Box(
+                modifier = Modifier
+                    .width(100.dp)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(PredictaColors.cream.copy(alpha = alpha * 0.10f)),
+            )
         }
     }
 }
