@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Isometric hex dice — same geometry as PredictaLogoDice Canvas.
-    Viewport 48×48 matches the SVG source so coordinates are verbatim.
-    Alpha values encoded as AARRGGBB: fill1=0.18, fill2=0.08, fill3=0.04,
-    edge=0.60, internal=0.21, pips=1.0.
+    Isometric hex dice scaled to 65% of original, centered at (24,24).
+    All coordinates: new = 24 + (original - 24) * 0.65
+    Stroke widths and pip radius also scaled by 0.65.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -13,47 +12,47 @@
 
     <!-- Face fills -->
     <path android:fillColor="#2EF5A524"
-        android:pathData="M24,4 L41.32,14 L24,24 L6.68,14 Z"/>
+        android:pathData="M24,11 L35.26,17.5 L24,24 L12.74,17.5 Z"/>
     <path android:fillColor="#14F5A524"
-        android:pathData="M24,24 L41.32,14 L41.32,34 L24,44 Z"/>
+        android:pathData="M24,24 L35.26,17.5 L35.26,30.5 L24,37 Z"/>
     <path android:fillColor="#0AF5A524"
-        android:pathData="M24,24 L6.68,14 L6.68,34 L24,44 Z"/>
+        android:pathData="M24,24 L12.74,17.5 L12.74,30.5 L24,37 Z"/>
 
-    <!-- Face edge strokes (alpha 0.60) -->
-    <path android:fillColor="#00000000" android:strokeColor="#99F5A524" android:strokeWidth="0.6"
-        android:pathData="M24,4 L41.32,14 L24,24 L6.68,14 Z"/>
-    <path android:fillColor="#00000000" android:strokeColor="#99F5A524" android:strokeWidth="0.6"
-        android:pathData="M24,24 L41.32,14 L41.32,34 L24,44 Z"/>
-    <path android:fillColor="#00000000" android:strokeColor="#99F5A524" android:strokeWidth="0.6"
-        android:pathData="M24,24 L6.68,14 L6.68,34 L24,44 Z"/>
+    <!-- Face edge strokes -->
+    <path android:fillColor="#00000000" android:strokeColor="#99F5A524" android:strokeWidth="0.4"
+        android:pathData="M24,11 L35.26,17.5 L24,24 L12.74,17.5 Z"/>
+    <path android:fillColor="#00000000" android:strokeColor="#99F5A524" android:strokeWidth="0.4"
+        android:pathData="M24,24 L35.26,17.5 L35.26,30.5 L24,37 Z"/>
+    <path android:fillColor="#00000000" android:strokeColor="#99F5A524" android:strokeWidth="0.4"
+        android:pathData="M24,24 L12.74,17.5 L12.74,30.5 L24,37 Z"/>
 
-    <!-- Outer hex border (full amber, thicker) -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFF5A524" android:strokeWidth="1.8"
-        android:pathData="M24,4 L41.32,14 L41.32,34 L24,44 L6.68,34 L6.68,14 Z"/>
+    <!-- Outer hex border -->
+    <path android:fillColor="#00000000" android:strokeColor="#FFF5A524" android:strokeWidth="1.2"
+        android:pathData="M24,11 L35.26,17.5 L35.26,30.5 L24,37 L12.74,30.5 L12.74,17.5 Z"/>
 
-    <!-- Internal edges (alpha 0.21) -->
-    <path android:fillColor="#00000000" android:strokeColor="#36F5A524" android:strokeWidth="0.6"
-        android:pathData="M24,24 L41.32,14"/>
-    <path android:fillColor="#00000000" android:strokeColor="#36F5A524" android:strokeWidth="0.6"
-        android:pathData="M24,24 L6.68,14"/>
-    <path android:fillColor="#00000000" android:strokeColor="#36F5A524" android:strokeWidth="0.6"
-        android:pathData="M24,24 L24,44"/>
+    <!-- Internal edges -->
+    <path android:fillColor="#00000000" android:strokeColor="#36F5A524" android:strokeWidth="0.4"
+        android:pathData="M24,24 L35.26,17.5"/>
+    <path android:fillColor="#00000000" android:strokeColor="#36F5A524" android:strokeWidth="0.4"
+        android:pathData="M24,24 L12.74,17.5"/>
+    <path android:fillColor="#00000000" android:strokeColor="#36F5A524" android:strokeWidth="0.4"
+        android:pathData="M24,24 L24,37"/>
 
-    <!-- Pips: top face — 1 pip -->
+    <!-- Pips: top face — 1 pip at (24, 17.5) r=1.17 -->
     <path android:fillColor="#FFF5A524"
-        android:pathData="M24,14 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+        android:pathData="M24,17.5 m-1.17,0 a1.17,1.17 0 1,0 2.34,0 a1.17,1.17 0 1,0 -2.34,0"/>
 
     <!-- Pips: right face — 3 pips -->
     <path android:fillColor="#FFF5A524"
-        android:pathData="M36.99,21.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+        android:pathData="M32.44,22.38 m-1.17,0 a1.17,1.17 0 1,0 2.34,0 a1.17,1.17 0 1,0 -2.34,0"/>
     <path android:fillColor="#FFF5A524"
-        android:pathData="M32.66,29 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+        android:pathData="M29.63,27.25 m-1.17,0 a1.17,1.17 0 1,0 2.34,0 a1.17,1.17 0 1,0 -2.34,0"/>
     <path android:fillColor="#FFF5A524"
-        android:pathData="M28.33,36.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+        android:pathData="M26.81,32.13 m-1.17,0 a1.17,1.17 0 1,0 2.34,0 a1.17,1.17 0 1,0 -2.34,0"/>
 
     <!-- Pips: left face — 2 pips -->
     <path android:fillColor="#FFF5A524"
-        android:pathData="M11.01,21.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+        android:pathData="M15.56,22.38 m-1.17,0 a1.17,1.17 0 1,0 2.34,0 a1.17,1.17 0 1,0 -2.34,0"/>
     <path android:fillColor="#FFF5A524"
-        android:pathData="M19.67,36.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+        android:pathData="M21.19,32.13 m-1.17,0 a1.17,1.17 0 1,0 2.34,0 a1.17,1.17 0 1,0 -2.34,0"/>
 </vector>
