@@ -30,7 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
@@ -45,7 +47,9 @@ fun ProfileScreen(
     onNavigate: (String) -> Unit = {},
     onSignOut: () -> Unit = {},
 ) {
-    val user = Fixtures.user
+    val context = LocalContext.current
+    val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
+    val user = Fixtures.user.copy(name = userSetup?.name ?: Fixtures.user.name)
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val scrollState = rememberScrollState()
