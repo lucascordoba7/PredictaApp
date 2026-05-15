@@ -27,6 +27,7 @@ object PredictaColors {
     val pendingSoft = Color(0x23E8A93B)
 
     val cream = Color(0xFFF4F2EE)
+    val cream80 = Color(0xCCF4F2EE)
     val cream60 = Color(0x99F4F2EE)
     val cream35 = Color(0x59F4F2EE)
     val cream12 = Color(0x1FF4F2EE)

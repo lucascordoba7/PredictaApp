@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
+import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.features.onboarding.OnboardingScreen
 import com.lucas.predictaapp.features.quickactions.QuickActionsSheet
 import com.lucas.predictaapp.ui.navigation.BottomNavigationBar
@@ -131,6 +132,7 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
                     currentRoute = currentRoute,
                     onNavigate = { navigate(it) },
                     onFabClick = { showQuickActions = true },
+                    profileScore = Fixtures.user.score,
                 )
             }
         },

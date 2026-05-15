@@ -71,4 +71,16 @@ object PredictaTypography {
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
     )
+    val heroAvailable = TextStyle(
+        fontFamily = IBMPlexSans,
+        fontWeight = FontWeight.Bold,
+        fontSize = 40.sp,
+        letterSpacing = (-1.2).sp,
+    )
+    val heroSpend = TextStyle(
+        fontFamily = IBMPlexSans,
+        fontWeight = FontWeight.Bold,
+        fontSize = 44.sp,
+        letterSpacing = (-1.5).sp,
+    )
 }

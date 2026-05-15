@@ -21,4 +21,7 @@ interface ExpenseDao {
 
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("SELECT COUNT(*) FROM expenses")
+    suspend fun count(): Int
 }

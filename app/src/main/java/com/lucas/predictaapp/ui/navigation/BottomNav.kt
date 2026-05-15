@@ -2,6 +2,7 @@ package com.lucas.predictaapp.ui.navigation
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -11,31 +12,40 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -45,6 +55,7 @@ fun BottomNavigationBar(
     currentRoute: String,
     onNavigate: (String) -> Unit,
     onFabClick: () -> Unit = {},
+    profileScore: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -71,23 +82,19 @@ fun BottomNavigationBar(
             onClick = { onNavigate(Screen.Permito.route) },
         )
 
-        FabButton(
-            onClick = onFabClick,
-        )
+        FabButton(onClick = onFabClick)
 
         NavItem(
             icon = Icons.Outlined.ChatBubbleOutline,
-            activeIcon = Icons.Filled.ChatBubble,
+            activeIcon = Icons.Default.ChatBubble,
             label = Screen.Chat.title,
             isSelected = currentRoute == Screen.Chat.route,
             onClick = { onNavigate(Screen.Chat.route) },
         )
 
-        NavItem(
-            icon = Icons.Outlined.PersonOutline,
-            activeIcon = Icons.Filled.Person,
-            label = Screen.Profile.title,
+        ProfileNavItem(
             isSelected = currentRoute == Screen.Profile.route,
+            score = profileScore,
             onClick = { onNavigate(Screen.Profile.route) },
         )
     }
@@ -124,8 +131,61 @@ private fun NavItem(
             modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.height(4.dp))
-        androidx.compose.material3.Text(
+        Text(
             text = label,
+            style = PredictaTypography.small,
+            color = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
+        )
+    }
+}
+
+@Composable
+private fun ProfileNavItem(
+    isSelected: Boolean,
+    score: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Box {
+            Icon(
+                imageVector = if (isSelected) Icons.Default.Person else Icons.Outlined.PersonOutline,
+                contentDescription = Screen.Profile.title,
+                tint = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
+                modifier = Modifier.size(24.dp),
+            )
+            if (score > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-2).dp)
+                        .clip(RoundedCornerShape(9999.dp))
+                        .background(PredictaColors.amber)
+                        .border(1.5.dp, PredictaColors.surface, RoundedCornerShape(9999.dp))
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                ) {
+                    Text(
+                        text = score.toString(),
+                        fontFamily = IBMPlexMono,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PredictaColors.charcoal,
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = Screen.Profile.title,
             style = PredictaTypography.small,
             color = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
         )
