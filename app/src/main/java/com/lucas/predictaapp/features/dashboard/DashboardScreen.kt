@@ -100,8 +100,6 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val dailyBudget = if (daysToPayday > 0) availableNow / daysToPayday else availableNow
 
     val zombies = subscriptions.filter { it.zombie }
-    val zombieSaving = zombies.sumOf { it.monthly }
-    val zombieNames = zombies.map { it.service }
 
     val scope = rememberCoroutineScope()
     var visible by remember { mutableStateOf(false) }
@@ -124,11 +122,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         }
         item {
             StaggerCard(1, visible) {
-                DashboardHeader(
-                    name = name,
-                    score = Fixtures.user.score,
-                    onScoreClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Profile.route) },
-                )
+                DashboardHeader(name = name)
             }
         }
         item {
@@ -160,9 +154,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
             item {
                 StaggerCard(7, visible) {
                     ZombiesCard(
-                        count = zombies.size,
-                        services = zombieNames,
-                        monthlySaving = zombieSaving,
+                        zombies = zombies,
                         onCancel = {},
                     )
                 }
