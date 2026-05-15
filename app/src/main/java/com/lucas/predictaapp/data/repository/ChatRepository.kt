@@ -75,6 +75,14 @@ Fechas (campo "date", formato YYYY-MM-DD, hoy = $today):
 - "hace 3 días" → restar 3 días a hoy
 - Si menciona una fecha futura → pedí aclaración
 
+Reglas para el campo "merchant":
+- Si el usuario menciona un comercio o local concreto → usá ese nombre (ej: "Don Julio" → "Don Julio", "Carrefour" → "Carrefour")
+- Si el usuario NO menciona un comercio → usá sus palabras como descripción, nunca infertas el tipo de local
+  Ej: "compré cigarrillos 500" → merchant: "Cigarrillos" (no "Kiosco")
+  Ej: "café 1200" → merchant: "Café" (no "Cafetería")
+  Ej: "cargué nafta 20k" → merchant: "Nafta" (no "Shell" ni "YPF")
+  Ej: "farmacia 3800" → merchant: "Farmacia" (no "Farmacity")
+
 Reglas:
 - Si no se menciona monto → usá FORMATO D (clarify), nunca inventes un número
 - Si mencionan USD/dólar → pedí aclaración
