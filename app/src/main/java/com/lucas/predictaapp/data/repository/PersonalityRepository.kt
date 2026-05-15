@@ -39,9 +39,9 @@ No estés limitado a días de semana. Buscá lo que hace única a esta persona.
 Devolvés UN JSON con este formato exacto:
 {
   "name": "nombre del arquetipo (máximo 5 palabras, evocador y específico, puede tener artículo)",
-  "description": "2 oraciones en rioplatense que retratan a esta persona. Usá datos concretos del historial: comercios reales, montos, comportamientos.",
+  "description": "2 oraciones cortas en rioplatense, tono de broma cómplice, máximo 140 caracteres en total. Capturá la vibe del arquetipo, no hagas un reporte de datos. Ej: 'Tus viernes valen más que toda la semana. Cuando salís, salís en serio.' / 'El delivery es tu lengua materna. Rappi te conoce mejor que tu familia.'",
   "pattern_label": "el patrón dominante en 2-4 palabras (ej: 'salidas nocturnas', 'delivery diario', 'compras hormiga', 'ahorro constante')",
-  "pattern_stat": "estadística que ilustra ese patrón (ej: '+280% vs promedio', '4x por semana', '60% del gasto')",
+  "pattern_stat": "estadística corta que ilustra ese patrón (ej: '+280% vs promedio', '4x por semana', '60% del gasto')",
   "emoji": "1 solo emoji que representa el arquetipo",
   "accent_color_key": "uno de exactamente: amber, coral, green, blue, purple, teal, pink"
 }
@@ -49,7 +49,7 @@ Devolvés UN JSON con este formato exacto:
 Reglas irrompibles:
 - Usá vos, rioplatense natural
 - El name tiene que ser memorable, no genérico. "El Gastador" es pésimo. "El Noctámbulo de Palermo" es bueno.
-- La description menciona al menos 1 comercio o categoría real de los datos
+- La description son 2 oraciones, máximo 140 caracteres, tono divertido — no menciona montos ni porcentajes exactos
 - accent_color_key: amber=salidas/diversión/social, coral=overspending/deuda/riesgo, green=ahorro/equilibrio/control, blue=tech/digital/suscripciones, purple=cultura/educación/arte, teal=viajes/transporte/movilidad, pink=moda/belleza/lifestyle
 - Devolvés SOLO el JSON. Sin markdown. Sin explicaciones. Sin texto extra.
 """.trimIndent()
@@ -58,7 +58,7 @@ object PersonalityRepository {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     private var cachedPersonality: Personality? = null
-    private var cacheFingerprint: String = ""
+    private var cacheFingerprint: String = "v3"
 
     suspend fun analyze(expenses: List<Expense>, income: Int, fixedMonthly: Int): Personality {
         val fingerprint = "${expenses.size}_${expenses.sumOf { it.amount }}"
@@ -101,7 +101,7 @@ object PersonalityRepository {
         // pattern_label y pattern_stat mapean a weeklySpike y spikeStat del modelo existente
         return Personality(
             name = obj["name"]?.jsonPrimitive?.contentOrNull?.take(60) ?: "El Explorador",
-            description = obj["description"]?.jsonPrimitive?.contentOrNull?.take(300) ?: "",
+            description = obj["description"]?.jsonPrimitive?.contentOrNull?.take(160) ?: "",
             weeklySpike = obj["pattern_label"]?.jsonPrimitive?.contentOrNull?.take(40)
                 ?: obj["weekly_spike"]?.jsonPrimitive?.contentOrNull?.take(40)
                 ?: "fin de semana",
