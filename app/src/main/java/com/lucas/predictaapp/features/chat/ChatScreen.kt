@@ -1,12 +1,17 @@
 package com.lucas.predictaapp.features.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.StartOffsetType
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,16 +23,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,8 +40,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,27 +54,47 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Expense
+import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.ExpenseExtraction
 import com.lucas.predictaapp.data.model.ExpenseSuggestion
+import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ChatRepository
+import com.lucas.predictaapp.features.onboarding.PredictaLogoDice
 import com.lucas.predictaapp.data.repository.ExpensesRepository
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.utils.fmtArs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private fun hexToColor(hex: String): Color = runCatching {
+    Color(android.graphics.Color.parseColor(hex))
+}.getOrElse { PredictaColors.amber }
+
+private fun currentTime(): String {
+    val now = java.time.LocalTime.now()
+    return "%02d:%02d".format(now.hour, now.minute)
+}
+
 private sealed class ChatMsg {
-    data class User(val text: String) : ChatMsg()
+    data class User(val text: String, val time: String = currentTime()) : ChatMsg()
     data class Bot(
         val text: String,
         val extraction: ExpenseExtraction? = null,
         val confirmed: Boolean = false,
         val dismissed: Boolean = false,
+        val time: String = currentTime(),
     ) : ChatMsg()
     data object Thinking : ChatMsg()
 }
@@ -89,6 +113,22 @@ fun ChatScreen() {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
+    val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
+    val expenseCategoryNames = remember(allCategories) {
+        allCategories.filter { it.type == CategoryType.EXPENSE }.map { it.name }
+            .ifEmpty { ExpenseCategories.expenseNames }
+    }
+    val emojiFor: (String) -> String = remember(allCategories) {
+        val map = allCategories.associate { it.name to it.emoji }
+        val fn: (String) -> String = { name -> map[name] ?: ExpenseCategories.emojiFor(name) }
+        fn
+    }
+    val colorFor: (String) -> Color = remember(allCategories) {
+        val map = allCategories.associate { it.name to it.color }
+        val fn: (String) -> Color = { name -> hexToColor(map[name] ?: ExpenseCategories.colorHexFor(name)) }
+        fn
+    }
+
     fun send(text: String) {
         if (text.isBlank()) return
         inputText = ""
@@ -96,7 +136,7 @@ fun ChatScreen() {
         messages.add(ChatMsg.Thinking)
 
         scope.launch {
-            val (extraction, unknownReply) = ChatRepository.extract(text)
+            val (extraction, unknownReply) = ChatRepository.extract(text, expenseCategoryNames)
             val thinkingIdx = messages.indexOfLast { it is ChatMsg.Thinking }
             if (thinkingIdx >= 0) messages.removeAt(thinkingIdx)
 
@@ -107,6 +147,10 @@ fun ChatScreen() {
                 )
                 is ExpenseExtraction.Income -> ChatMsg.Bot(
                     text = "Anotado como ingreso 👇",
+                    extraction = extraction,
+                )
+                is ExpenseExtraction.MultiExpense -> ChatMsg.Bot(
+                    text = "Encontré ${extraction.expenses.size} gastos 👇",
                     extraction = extraction,
                 )
                 is ExpenseExtraction.Clarify -> ChatMsg.Bot(
@@ -132,6 +176,8 @@ fun ChatScreen() {
                         merchant = extraction.merchant,
                         category = extraction.category,
                         amount = extraction.amount,
+                        whenLabel = extraction.whenLabel,
+                        dateMillis = extraction.dateMillis,
                     )
                 )
                 is ExpenseExtraction.Income -> ExpensesRepository.add(
@@ -139,8 +185,21 @@ fun ChatScreen() {
                         merchant = extraction.merchant,
                         category = "Ingreso",
                         amount = -extraction.amount,
+                        whenLabel = extraction.whenLabel,
+                        dateMillis = extraction.dateMillis,
                     )
                 )
+                is ExpenseExtraction.MultiExpense -> extraction.expenses.forEach { exp ->
+                    ExpensesRepository.add(
+                        Expense(
+                            merchant = exp.merchant,
+                            category = exp.category,
+                            amount = exp.amount,
+                            whenLabel = exp.whenLabel,
+                            dateMillis = exp.dateMillis,
+                        )
+                    )
+                }
                 else -> Unit
             }
         }
@@ -168,16 +227,18 @@ fun ChatScreen() {
                 state = listState,
                 modifier = Modifier.weight(1f),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    horizontal = PredictaDimensions.Spacing.screenPadding,
+                    horizontal = PredictaDimensions.Spacing.base,
                     vertical = PredictaDimensions.Spacing.base,
                 ),
                 verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
             ) {
                 items(messages.size) { i ->
                     when (val msg = messages[i]) {
-                        is ChatMsg.User -> UserBubble(msg.text)
+                        is ChatMsg.User -> UserBubble(msg.text, msg.time)
                         is ChatMsg.Bot -> BotBubble(
                             msg = msg,
+                            emojiFor = emojiFor,
+                            colorFor = colorFor,
                             onConfirm = { confirmExtraction(i, msg.extraction!!) },
                             onDismiss = { dismissExtraction(i) },
                             onSuggestionClick = { send(it) },
@@ -198,28 +259,71 @@ fun ChatScreen() {
 
 @Composable
 private fun TopBar() {
-    Row(
+    val infinite = rememberInfiniteTransition(label = "status")
+    val dotAlpha by infinite.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.4f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "statusDot",
+    )
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(
-                horizontal = PredictaDimensions.Spacing.screenPadding,
-                vertical = PredictaDimensions.Spacing.base,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+            .background(PredictaColors.charcoal),
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .background(PredictaColors.amber, CircleShape),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .padding(
+                    horizontal = PredictaDimensions.Spacing.screenPadding,
+                    vertical = PredictaDimensions.Spacing.base,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("P", style = PredictaTypography.bodyTight, color = PredictaColors.onAmber)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(PredictaColors.amberSoft, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(PredictaColors.surfaceHigh, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PredictaLogoDice(size = 26.dp)
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Predicta", style = PredictaTypography.bodyTight, color = PredictaColors.cream)
+                Text(
+                    "Registrá gastos con texto natural",
+                    style = PredictaTypography.caption,
+                    color = PredictaColors.cream35,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(PredictaColors.green.copy(alpha = dotAlpha), CircleShape),
+                    )
+                    Text("En línea", style = PredictaTypography.caption, color = PredictaColors.green)
+                }
+            }
         }
-        Column {
-            Text("Predicta", style = PredictaTypography.bodyTight, color = PredictaColors.cream)
-            Text("Registrá gastos con texto natural", style = PredictaTypography.caption, color = PredictaColors.cream35)
-        }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = PredictaDimensions.Spacing.screenPadding),
+            color = PredictaColors.lineStrong,
+            thickness = 0.5.dp,
+        )
     }
 }
 
@@ -230,11 +334,21 @@ private fun EmptyState(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(PredictaDimensions.Spacing.screenPadding),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(PredictaDimensions.Spacing.screenPadding),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("💬", style = PredictaTypography.scoreHero, textAlign = TextAlign.Center)
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(RoundedCornerShape(PredictaDimensions.Radius.lg))
+                .background(PredictaColors.surfaceHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("💬", style = PredictaTypography.section)
+        }
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
         Text(
             text = "Contame un gasto o ingreso",
@@ -244,7 +358,7 @@ private fun EmptyState(
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.xs))
         Text(
-            text = "Lo registro automáticamente.",
+            text = "Lo registro automáticamente para que\ntengas el control de tus finanzas.",
             style = PredictaTypography.body,
             color = PredictaColors.cream60,
             textAlign = TextAlign.Center,
@@ -254,19 +368,11 @@ private fun EmptyState(
             horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
         ) {
-            starters.forEach { starter ->
-                Text(
+            starters.forEachIndexed { i, starter ->
+                AnimatedChip(
                     text = starter,
-                    style = PredictaTypography.small,
-                    color = PredictaColors.cream60,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
-                        .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.pill))
-                        .clickable { onStarterClick(starter) }
-                        .padding(
-                            horizontal = PredictaDimensions.Spacing.md,
-                            vertical = PredictaDimensions.Spacing.sm,
-                        ),
+                    delayMs = 150 + i * 130,
+                    onClick = { onStarterClick(starter) },
                 )
             }
         }
@@ -274,27 +380,75 @@ private fun EmptyState(
 }
 
 @Composable
-private fun UserBubble(text: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+private fun AnimatedChip(text: String, delayMs: Int, onClick: () -> Unit) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(delayMs.toLong())
+        visible = true
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(250)) +
+            slideInVertically(tween(350, easing = FastOutSlowInEasing)) { it / 2 } +
+            scaleIn(tween(350, easing = FastOutSlowInEasing), initialScale = 0.95f),
+    ) {
         Text(
             text = text,
-            style = PredictaTypography.body,
-            color = PredictaColors.onAmber,
+            style = PredictaTypography.small,
+            color = PredictaColors.cream60,
             modifier = Modifier
-                .clip(
-                    RoundedCornerShape(
-                        topStart = PredictaDimensions.Radius.bubble,
-                        topEnd = 4.dp,
-                        bottomStart = PredictaDimensions.Radius.bubble,
-                        bottomEnd = PredictaDimensions.Radius.bubble,
-                    )
-                )
-                .background(PredictaColors.amber)
+                .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
+                .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.pill))
+                .clickable(onClick = onClick)
                 .padding(
-                    horizontal = PredictaDimensions.Spacing.base,
+                    horizontal = PredictaDimensions.Spacing.md,
                     vertical = PredictaDimensions.Spacing.sm,
                 ),
         )
+    }
+}
+
+@Composable
+private fun UserBubble(text: String, time: String) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    AnimatedVisibility(
+        visible = visible,
+        modifier = Modifier.fillMaxWidth(),
+        enter = fadeIn(tween(200)) +
+            slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 3 } +
+            scaleIn(tween(300, easing = FastOutSlowInEasing), initialScale = 0.97f),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.End,
+        ) {
+            Text(
+                text = text,
+                style = PredictaTypography.body,
+                color = PredictaColors.onAmber,
+                modifier = Modifier
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = PredictaDimensions.Radius.bubble,
+                            topEnd = 4.dp,
+                            bottomStart = PredictaDimensions.Radius.bubble,
+                            bottomEnd = PredictaDimensions.Radius.bubble,
+                        )
+                    )
+                    .background(PredictaColors.amber)
+                    .padding(
+                        horizontal = PredictaDimensions.Spacing.base,
+                        vertical = PredictaDimensions.Spacing.sm,
+                    ),
+            )
+            Text(
+                text = time,
+                style = PredictaTypography.caption,
+                color = PredictaColors.cream35,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
 
@@ -302,58 +456,198 @@ private fun UserBubble(text: String) {
 @Composable
 private fun BotBubble(
     msg: ChatMsg.Bot,
+    emojiFor: (String) -> String,
+    colorFor: (String) -> Color,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     onSuggestionClick: (String) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(0.88f),
-        verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
-    ) {
-        Text(
-            text = msg.text,
-            style = PredictaTypography.body,
-            color = PredictaColors.cream,
-            modifier = Modifier
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 4.dp,
-                        topEnd = PredictaDimensions.Radius.bubble,
-                        bottomStart = PredictaDimensions.Radius.bubble,
-                        bottomEnd = PredictaDimensions.Radius.bubble,
-                    )
-                )
-                .background(PredictaColors.surface)
-                .padding(
-                    horizontal = PredictaDimensions.Spacing.base,
-                    vertical = PredictaDimensions.Spacing.sm,
-                ),
-        )
+    val bubbleShape = RoundedCornerShape(
+        topStart = 4.dp,
+        topEnd = PredictaDimensions.Radius.bubble,
+        bottomStart = PredictaDimensions.Radius.bubble,
+        bottomEnd = PredictaDimensions.Radius.bubble,
+    )
 
-        when (val ext = msg.extraction) {
-            is ExpenseExtraction.Expense, is ExpenseExtraction.Income -> {
-                if (!msg.dismissed) {
-                    ExtractionCard(
-                        extraction = ext,
-                        confirmed = msg.confirmed,
-                        onConfirm = onConfirm,
-                        onDismiss = onDismiss,
-                    )
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    AnimatedVisibility(
+        visible = visible,
+        modifier = Modifier.fillMaxWidth(),
+        enter = fadeIn(tween(200)) +
+            slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 3 } +
+            scaleIn(tween(300, easing = FastOutSlowInEasing), initialScale = 0.97f),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(0.88f),
+            verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+        ) {
+            Text(
+                text = msg.text,
+                style = PredictaTypography.body,
+                color = PredictaColors.cream,
+                modifier = Modifier
+                    .clip(bubbleShape)
+                    .background(PredictaColors.surface)
+                    .border(0.5.dp, PredictaColors.lineStrong, bubbleShape)
+                    .padding(
+                        horizontal = PredictaDimensions.Spacing.base,
+                        vertical = PredictaDimensions.Spacing.sm,
+                    ),
+            )
+
+            when (val ext = msg.extraction) {
+                is ExpenseExtraction.Expense, is ExpenseExtraction.Income -> {
+                    if (!msg.dismissed) {
+                        ExtractionCard(
+                            extraction = ext,
+                            emojiFor = emojiFor,
+                            colorFor = colorFor,
+                            confirmed = msg.confirmed,
+                            onConfirm = onConfirm,
+                            onDismiss = onDismiss,
+                        )
+                    }
                 }
-            }
-            is ExpenseExtraction.Clarify -> {
-                if (ext.suggestions.isNotEmpty()) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
-                    ) {
-                        ext.suggestions.forEach { sug ->
-                            SuggestionChip(sug, onClick = { onSuggestionClick(sug.rewrittenIntent) })
+                is ExpenseExtraction.MultiExpense -> {
+                    if (!msg.dismissed) {
+                        MultiExtractionCard(
+                            extraction = ext,
+                            emojiFor = emojiFor,
+                            colorFor = colorFor,
+                            confirmed = msg.confirmed,
+                            onConfirm = onConfirm,
+                            onDismiss = onDismiss,
+                        )
+                    }
+                }
+                is ExpenseExtraction.Clarify -> {
+                    if (ext.suggestions.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+                        ) {
+                            ext.suggestions.forEach { sug ->
+                                SuggestionChip(sug, onClick = { onSuggestionClick(sug.rewrittenIntent) })
+                            }
                         }
                     }
                 }
+                else -> Unit
             }
-            else -> Unit
+
+            Text(
+                text = msg.time,
+                style = PredictaTypography.caption,
+                color = PredictaColors.cream35,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MultiExtractionCard(
+    extraction: ExpenseExtraction.MultiExpense,
+    emojiFor: (String) -> String,
+    colorFor: (String) -> Color,
+    confirmed: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val total = extraction.expenses.sumOf { it.amount }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
+            .background(PredictaColors.surface)
+            .border(
+                1.dp,
+                if (confirmed) PredictaColors.greenSoft else PredictaColors.lineStrong,
+                RoundedCornerShape(PredictaDimensions.Radius.card),
+            )
+            .padding(PredictaDimensions.Spacing.base),
+        verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+    ) {
+        extraction.expenses.forEach { exp ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+                ) {
+                    CategoryBubble(emoji = emojiFor(exp.category), color = colorFor(exp.category))
+                    Column {
+                        Text(exp.merchant, style = PredictaTypography.bodyTight, color = PredictaColors.cream)
+                        Text(
+                            text = if (exp.whenLabel != "hoy") "${exp.category} · ${exp.whenLabel}" else exp.category,
+                            style = PredictaTypography.caption,
+                            color = PredictaColors.cream35,
+                        )
+                    }
+                }
+                Text(
+                    text = "\$${exp.amount.fmtArs()}",
+                    style = PredictaTypography.bodyTight,
+                    color = PredictaColors.cream,
+                )
+            }
+        }
+
+        HorizontalDivider(color = PredictaColors.lineStrong, thickness = 0.5.dp)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Total", style = PredictaTypography.bodyTight, color = PredictaColors.cream60)
+            Text("\$${total.fmtArs()}", style = PredictaTypography.bodyTight, color = PredictaColors.cream)
+        }
+
+        if (!confirmed) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(PredictaDimensions.Radius.sm))
+                        .background(PredictaColors.surfaceHigh)
+                        .clickable(onClick = onDismiss)
+                        .padding(vertical = PredictaDimensions.Spacing.sm),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Close, null, tint = PredictaColors.cream60, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Ignorar", style = PredictaTypography.small, color = PredictaColors.cream60)
+                }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(PredictaDimensions.Radius.sm))
+                        .background(PredictaColors.greenSoft)
+                        .clickable(onClick = onConfirm)
+                        .padding(vertical = PredictaDimensions.Spacing.sm),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Check, null, tint = PredictaColors.green, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Confirmar todos", style = PredictaTypography.small, color = PredictaColors.green)
+                }
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Check, null, tint = PredictaColors.green, modifier = Modifier.size(14.dp))
+                Text("Registrados", style = PredictaTypography.small, color = PredictaColors.green)
+            }
         }
     }
 }
@@ -361,13 +655,15 @@ private fun BotBubble(
 @Composable
 private fun ExtractionCard(
     extraction: ExpenseExtraction,
+    emojiFor: (String) -> String,
+    colorFor: (String) -> Color,
     confirmed: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val (emoji, label, amount, category) = when (extraction) {
         is ExpenseExtraction.Expense -> ExtractionInfo(
-            emoji = categoryEmoji(extraction.category),
+            emoji = emojiFor(extraction.category),
             label = extraction.merchant,
             amount = extraction.amount,
             category = extraction.category,
@@ -379,6 +675,12 @@ private fun ExtractionCard(
             category = "Ingreso",
         )
         else -> return
+    }
+
+    val dateLabel = when (extraction) {
+        is ExpenseExtraction.Expense -> if (extraction.whenLabel != "hoy") "$category · ${extraction.whenLabel}" else category
+        is ExpenseExtraction.Income -> if (extraction.whenLabel != "hoy") "$category · ${extraction.whenLabel}" else category
+        else -> category
     }
 
     Column(
@@ -403,10 +705,11 @@ private fun ExtractionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
             ) {
-                Text(emoji, style = PredictaTypography.body)
+                val bubbleColor = if (extraction is ExpenseExtraction.Income) PredictaColors.green else colorFor(category)
+                CategoryBubble(emoji = emoji, color = bubbleColor)
                 Column {
                     Text(label, style = PredictaTypography.bodyTight, color = PredictaColors.cream)
-                    Text(category, style = PredictaTypography.caption, color = PredictaColors.cream35)
+                    Text(dateLabel, style = PredictaTypography.caption, color = PredictaColors.cream35)
                 }
             }
             Text(
@@ -469,17 +772,18 @@ private data class ExtractionInfo(
     val category: String,
 )
 
-private fun categoryEmoji(category: String) = when (category.lowercase()) {
-    "salidas" -> "🍷"
-    "delivery" -> "🛵"
-    "transporte" -> "🚗"
-    "salud" -> "💊"
-    "comida en casa" -> "🛒"
-    "tecnología" -> "💻"
-    "ropa" -> "👟"
-    "entretenimiento" -> "🎬"
-    "suscripciones" -> "📱"
-    else -> "💸"
+@Composable
+private fun CategoryBubble(emoji: String, color: Color) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(34.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.15f))
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
+    ) {
+        Text(text = emoji, fontSize = 16.sp)
+    }
 }
 
 @Composable
@@ -503,32 +807,39 @@ private fun SuggestionChip(suggestion: ExpenseSuggestion, onClick: () -> Unit) {
 @Composable
 private fun ThinkingBubble() {
     val infinite = rememberInfiniteTransition(label = "thinking")
-    val alpha by infinite.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
-        label = "alpha",
+    val animSpec = { offsetMs: Int ->
+        infiniteRepeatable<Float>(
+            animation = tween(500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+            initialStartOffset = StartOffset(offsetMs, StartOffsetType.FastForward),
+        )
+    }
+    val offset0 by infinite.animateFloat(0f, -5f, animSpec(0), label = "d0")
+    val offset1 by infinite.animateFloat(0f, -5f, animSpec(167), label = "d1")
+    val offset2 by infinite.animateFloat(0f, -5f, animSpec(334), label = "d2")
+
+    val bubbleShape = RoundedCornerShape(
+        topStart = 4.dp,
+        topEnd = PredictaDimensions.Radius.bubble,
+        bottomStart = PredictaDimensions.Radius.bubble,
+        bottomEnd = PredictaDimensions.Radius.bubble,
     )
+
     Row(
         modifier = Modifier
-            .clip(
-                RoundedCornerShape(
-                    topStart = 4.dp,
-                    topEnd = PredictaDimensions.Radius.bubble,
-                    bottomStart = PredictaDimensions.Radius.bubble,
-                    bottomEnd = PredictaDimensions.Radius.bubble,
-                )
-            )
+            .clip(bubbleShape)
             .background(PredictaColors.surface)
-            .padding(horizontal = PredictaDimensions.Spacing.base, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .border(0.5.dp, PredictaColors.lineStrong, bubbleShape)
+            .padding(horizontal = PredictaDimensions.Spacing.base, vertical = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        repeat(3) {
+        listOf(offset0, offset1, offset2).forEach { offset ->
             Box(
                 modifier = Modifier
-                    .size(6.dp)
-                    .background(PredictaColors.cream35.copy(alpha = alpha), CircleShape),
+                    .size(7.dp)
+                    .offset(y = offset.dp)
+                    .background(PredictaColors.cream35, CircleShape),
             )
         }
     }
@@ -540,55 +851,74 @@ private fun ChatInputBar(
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
 ) {
-    Row(
+    var isFocused by remember { mutableStateOf(false) }
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) PredictaColors.amberEdge else PredictaColors.lineStrong,
+        animationSpec = tween(250),
+        label = "inputBorder",
+    )
+    val inputShape = RoundedCornerShape(PredictaDimensions.Radius.lg)
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PredictaColors.surface)
-            .padding(
-                horizontal = PredictaDimensions.Spacing.base,
-                vertical = PredictaDimensions.Spacing.sm,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
-    ) {
-        BasicTextField(
-            value = text,
-            onValueChange = onTextChange,
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
-                .background(PredictaColors.surfaceHigh)
-                .padding(
-                    horizontal = PredictaDimensions.Spacing.base,
-                    vertical = PredictaDimensions.Spacing.sm,
-                ),
-            textStyle = PredictaTypography.body.copy(color = PredictaColors.cream),
-            cursorBrush = SolidColor(PredictaColors.amber),
-            maxLines = 4,
-            decorationBox = { inner ->
-                if (text.isEmpty()) {
-                    Text("Ej: gasté 8.400 en Uber", style = PredictaTypography.body, color = PredictaColors.cream35)
-                }
-                inner()
-            },
-        )
-
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .background(
-                    if (text.isNotBlank()) PredictaColors.amber else PredictaColors.surfaceHigh,
-                    CircleShape,
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, PredictaColors.charcoal),
                 )
-                .clickable(enabled = text.isNotBlank(), onClick = onSend),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.ArrowUpward,
-                contentDescription = "Enviar",
-                tint = if (text.isNotBlank()) PredictaColors.onAmber else PredictaColors.cream35,
-                modifier = Modifier.size(20.dp),
             )
+            .padding(
+                start = PredictaDimensions.Spacing.base,
+                end = PredictaDimensions.Spacing.base,
+                top = PredictaDimensions.Spacing.md,
+                bottom = PredictaDimensions.Spacing.sm,
+            ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(inputShape)
+                .background(PredictaColors.surfaceHigh)
+                .border(1.5.dp, borderColor, inputShape)
+                .padding(start = PredictaDimensions.Spacing.base, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+        ) {
+            BasicTextField(
+                value = text,
+                onValueChange = onTextChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = PredictaDimensions.Spacing.sm)
+                    .onFocusChanged { isFocused = it.isFocused },
+                textStyle = PredictaTypography.body.copy(color = PredictaColors.cream),
+                cursorBrush = SolidColor(PredictaColors.amber),
+                maxLines = 4,
+                decorationBox = { inner ->
+                    if (text.isEmpty()) {
+                        Text("Ej: gasté 8.400 en Uber", style = PredictaTypography.body, color = PredictaColors.cream35)
+                    }
+                    inner()
+                },
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        if (text.isNotBlank()) PredictaColors.amber else PredictaColors.surface,
+                        CircleShape,
+                    )
+                    .clickable(enabled = text.isNotBlank(), onClick = onSend),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowUpward,
+                    contentDescription = "Enviar",
+                    tint = if (text.isNotBlank()) PredictaColors.onAmber else PredictaColors.cream35,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }

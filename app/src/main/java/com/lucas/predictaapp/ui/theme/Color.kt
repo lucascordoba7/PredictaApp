@@ -32,4 +32,14 @@ object PredictaColors {
     val cream12 = Color(0x1FF4F2EE)
 
     val onAmber = Color(0xFF1A0E00)
+
+    // Category accent colors (design palette)
+    val blue      = Color(0xFF6A92E8)
+    val blueSoft  = Color(0x1A6A92E8)
+    val purple    = Color(0xFF9D7AE8)
+    val purpleSoft= Color(0x1A9D7AE8)
+    val pink      = Color(0xFFE87AB6)
+    val pinkSoft  = Color(0x1AE87AB6)
+    val teal      = Color(0xFF6FD3C5)
+    val tealSoft  = Color(0x1A6FD3C5)
 }

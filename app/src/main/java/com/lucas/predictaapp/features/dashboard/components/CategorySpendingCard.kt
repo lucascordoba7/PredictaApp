@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.ui.theme.PredictaColors
@@ -46,8 +47,18 @@ import com.lucas.predictaapp.ui.utils.fmtArs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategorySpendingCard(expenses: List<Expense>, income: Int) {
-    val nonIncome = expenses.filter { it.category != "Ingreso" }
+fun CategorySpendingCard(
+    expenses: List<Expense>,
+    income: Int,
+    emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
+    colorFor: (String) -> Color = { categoryColor(it) },
+    expenseCategoryNames: Set<String>? = null,
+) {
+    val nonIncome = if (expenseCategoryNames != null) {
+        expenses.filter { it.category in expenseCategoryNames }
+    } else {
+        expenses.filter { it.category != "Ingreso" }
+    }
     val totalSpent = nonIncome.sumOf { it.amount }
 
     val grouped = nonIncome
@@ -120,7 +131,7 @@ fun CategorySpendingCard(expenses: List<Expense>, income: Int) {
                         modifier = Modifier
                             .weight(seg)
                             .fillMaxHeight()
-                            .background(categoryColor(cat)),
+                            .background(colorFor(cat)),
                     )
                 }
                 val remaining = 1f - totalFraction
@@ -153,7 +164,7 @@ fun CategorySpendingCard(expenses: List<Expense>, income: Int) {
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(categoryColor(cat)),
+                            .background(colorFor(cat)),
                     )
                 }
                 if (grouped.size > 4) {
@@ -187,6 +198,8 @@ fun CategorySpendingCard(expenses: List<Expense>, income: Int) {
                         cat = cat,
                         amount = amount,
                         totalSpent = totalSpent,
+                        emojiFor = emojiFor,
+                        colorFor = colorFor,
                     )
                 }
                 if (grouped.size > 3) {
@@ -227,14 +240,21 @@ fun CategorySpendingCard(expenses: List<Expense>, income: Int) {
                 totalSpent = totalSpent,
                 income = income,
                 usedPct = usedPct,
+                emojiFor = emojiFor,
             )
         }
     }
 }
 
 @Composable
-private fun TopCategoryRow(cat: String, amount: Int, totalSpent: Int) {
-    val color = categoryColor(cat)
+private fun TopCategoryRow(
+    cat: String,
+    amount: Int,
+    totalSpent: Int,
+    emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
+    colorFor: (String) -> Color = { categoryColor(it) },
+) {
+    val color = colorFor(cat)
     val fraction = if (totalSpent > 0) (amount.toFloat() / totalSpent).coerceIn(0f, 1f) else 0f
     val pct = (fraction * 100).toInt()
 
@@ -244,7 +264,7 @@ private fun TopCategoryRow(cat: String, amount: Int, totalSpent: Int) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "${ExpenseCategories.emojiFor(cat)}  $cat",
+                text = "${emojiFor(cat)}  $cat",
                 style = PredictaTypography.small.copy(
                     color = PredictaColors.cream60,
                     fontSize = 12.sp,
@@ -294,6 +314,8 @@ private fun CategoryBreakdownSheet(
     totalSpent: Int,
     income: Int,
     usedPct: Int,
+    emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
+    colorFor: (String) -> Color = { categoryColor(it) },
 ) {
     Column(
         modifier = Modifier
@@ -353,7 +375,7 @@ private fun CategoryBreakdownSheet(
             grouped.forEach { (cat, amount) ->
                 val pct = if (totalSpent > 0) (amount.toFloat() / totalSpent * 100).toInt() else 0
                 val barFraction = if (totalSpent > 0) (amount.toFloat() / totalSpent).coerceIn(0f, 1f) else 0f
-                val color = categoryColor(cat)
+                val color = colorFor(cat)
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -367,7 +389,7 @@ private fun CategoryBreakdownSheet(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "${ExpenseCategories.emojiFor(cat)}  $cat",
+                        text = "${emojiFor(cat)}  $cat",
                         style = PredictaTypography.body.copy(
                             color = PredictaColors.cream,
                             fontSize = 14.sp,

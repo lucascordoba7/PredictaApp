@@ -39,6 +39,8 @@ sealed class ExpenseExtraction {
         val category: String,
         val amount: Int,
         val items: List<ExpenseLineItem> = emptyList(),
+        val dateMillis: Long = System.currentTimeMillis(),
+        val whenLabel: String = "hoy",
     ) : ExpenseExtraction()
 
     @Serializable
@@ -46,6 +48,13 @@ sealed class ExpenseExtraction {
         val merchant: String,
         val category: String = "Ingreso",
         val amount: Int,
+        val dateMillis: Long = System.currentTimeMillis(),
+        val whenLabel: String = "hoy",
+    ) : ExpenseExtraction()
+
+    @Serializable
+    data class MultiExpense(
+        val expenses: List<Expense>,
     ) : ExpenseExtraction()
 
     @Serializable

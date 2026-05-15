@@ -38,8 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.Color
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
+import com.lucas.predictaapp.data.model.CategoryType
+import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.Fixtures
+import com.lucas.predictaapp.ui.theme.categoryColor
+import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
@@ -62,6 +67,24 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
+    val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
+
+    val expenseCategoryNames = remember(allCategories) {
+        allCategories.filter { it.type == CategoryType.EXPENSE }.map { it.name }.toSet()
+            .ifEmpty { null }
+    }
+    val emojiFor: (String) -> String = remember(allCategories) {
+        val map = allCategories.associate { it.name to it.emoji }
+        val fn: (String) -> String = { name -> map[name] ?: ExpenseCategories.emojiFor(name) }
+        fn
+    }
+    val colorFor: (String) -> Color = remember(allCategories) {
+        val map = allCategories.associate { cat ->
+            cat.name to runCatching { Color(android.graphics.Color.parseColor(cat.color)) }.getOrNull()
+        }
+        val fn: (String) -> Color = { name -> map[name] ?: categoryColor(name) }
+        fn
+    }
 
     val name = userSetup?.name ?: Fixtures.user.name
     val income = userSetup?.income ?: Fixtures.user.monthIncome
@@ -69,7 +92,9 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val fixedMonthly = userSetup?.fixedMonthly ?: Fixtures.user.fixedMonthly
 
     val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
-    val totalSpent = monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount }
+    val totalSpent = monthExpenses.filter {
+        expenseCategoryNames?.contains(it.category) ?: (it.category != "Ingreso")
+    }.sumOf { it.amount }
     val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
     val daysToPayday = getDaysToPayday(paydayDay)
     val dailyBudget = if (daysToPayday > 0) availableNow / daysToPayday else availableNow
@@ -112,7 +137,13 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         }
         item {
             StaggerCard(3, visible) {
-                CategorySpendingCard(expenses = monthExpenses, income = income)
+                CategorySpendingCard(
+                    expenses = monthExpenses,
+                    income = income,
+                    emojiFor = emojiFor,
+                    colorFor = colorFor,
+                    expenseCategoryNames = expenseCategoryNames,
+                )
             }
         }
         item { StaggerCard(4, visible) { SectionLabel("Tus metas") } }
@@ -139,6 +170,8 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                     TransactionsCard(
                         expenses = expenses,
                         onDelete = { expense -> scope.launch { ExpensesRepository.delete(expense.id) } },
+                        emojiFor = emojiFor,
+                        colorFor = colorFor,
                     )
                 }
             }

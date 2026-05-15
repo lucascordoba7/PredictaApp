@@ -43,10 +43,9 @@ import com.lucas.predictaapp.ui.utils.fmtArs
 
 private data class CategoryStyle(val emoji: String, val bg: Color, val fg: Color)
 
-private fun styleFor(category: String): CategoryStyle {
-    val color = categoryColor(category)
-    val emoji = ExpenseCategories.emojiFor(category)
-    return CategoryStyle(emoji, color.copy(alpha = 0.15f), color)
+private fun styleFor(category: String, emojiFor: (String) -> String, colorFor: (String) -> Color): CategoryStyle {
+    val color = colorFor(category)
+    return CategoryStyle(emojiFor(category), color.copy(alpha = 0.15f), color)
 }
 private val defaultStyle = CategoryStyle("💸", PredictaColors.surfaceHigh, PredictaColors.cream60)
 
@@ -55,6 +54,8 @@ fun TransactionsCard(
     expenses: List<Expense>,
     onDelete: (Expense) -> Unit = {},
     onSeeAll: (() -> Unit)? = null,
+    emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
+    colorFor: (String) -> Color = { categoryColor(it) },
 ) {
     var pendingDelete by remember { mutableStateOf<Expense?>(null) }
 
@@ -111,6 +112,8 @@ fun TransactionsCard(
             TransactionRow(
                 expense = expense,
                 onLongClick = { pendingDelete = expense },
+                emojiFor = emojiFor,
+                colorFor = colorFor,
             )
             if (i < expenses.lastIndex) {
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(PredictaColors.line))
@@ -155,12 +158,17 @@ fun TransactionsCard(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TransactionRow(expense: Expense, onLongClick: () -> Unit) {
+private fun TransactionRow(
+    expense: Expense,
+    onLongClick: () -> Unit,
+    emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
+    colorFor: (String) -> Color = { categoryColor(it) },
+) {
     val style = if (expense.category == "Ingreso") defaultStyle.copy(
         emoji = "💰",
         bg = PredictaColors.greenSoft,
         fg = PredictaColors.green,
-    ) else styleFor(expense.category)
+    ) else styleFor(expense.category, emojiFor, colorFor)
     val isIncome = expense.category == "Ingreso"
 
     Row(

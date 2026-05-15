@@ -7,6 +7,7 @@ sealed class Screen(val route: String, val title: String) {
     object Profile : Screen("profile", "Yo")
     object Subscriptions : Screen("subscriptions", "Suscripciones")
     object Notifications : Screen("notifications", "Notificaciones")
+    object Categories : Screen("categories", "Categorías")
 }
 
 val bottomNavScreens = listOf(

@@ -3,6 +3,7 @@ package com.lucas.predictaapp.data.model
 object Fixtures {
     val user = UserProfile(
         name = "Vale",
+        email = "lucascordoba77@gmail.com",
         monthIncome = 900000,
         monthSpent = 180000,
         previousMonthSpent = 196000,
@@ -15,6 +16,9 @@ object Fixtures {
             name = "La Anfitriona de Viernes",
             description = "Tus gastos cuentan una historia: amás juntar gente y los viernes son imparables.",
             weeklySpike = "viernes",
+            spikeStat = "+318%",
+            emoji = "🎉",
+            accentColorKey = "amber",
         ),
     )
 

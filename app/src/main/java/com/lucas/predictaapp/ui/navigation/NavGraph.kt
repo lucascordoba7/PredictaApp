@@ -10,6 +10,7 @@ import com.lucas.predictaapp.features.chat.ChatScreen
 import com.lucas.predictaapp.features.dashboard.DashboardScreen
 import com.lucas.predictaapp.features.notifications.NotificationsScreen
 import com.lucas.predictaapp.features.permito.PermitoScreen
+import com.lucas.predictaapp.features.profile.CategoriesScreen
 import com.lucas.predictaapp.features.profile.ProfileScreen
 import com.lucas.predictaapp.features.subscriptions.SubscriptionsScreen
 import androidx.compose.runtime.getValue
@@ -47,6 +48,11 @@ fun PredictaNavGraph(
         }
         composable(Screen.Subscriptions.route) {
             SubscriptionsScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.Categories.route) {
+            CategoriesScreen(
                 onBack = { navController.popBackStack() },
             )
         }

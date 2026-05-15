@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -34,7 +35,6 @@ import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.features.dashboard.components.HealthCard
-import com.lucas.predictaapp.features.dashboard.components.PersonalityCard
 import com.lucas.predictaapp.ui.navigation.Screen
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
@@ -65,15 +65,9 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.lg))
 
-        ProfileStats(user = user)
-
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
-
-        PersonalityCard(
-            emoji = "🎉",
-            name = user.personality.name,
-            stat = "+318% los ${user.personality.weeklySpike}",
-            cta = "ver historia",
+        PersonalityBanner(
+            state = PersonalityBannerState.Ready(user.personality),
+            onPress = {},
         )
 
         Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
@@ -90,6 +84,11 @@ fun ProfileScreen(
                     label = "Suscripciones",
                     subtitle = "${subscriptions.size} activas",
                     route = Screen.Subscriptions.route,
+                ),
+                MenuItem(
+                    icon = Icons.Default.Category,
+                    label = "Categorías",
+                    route = Screen.Categories.route,
                 ),
                 MenuItem(
                     icon = Icons.Default.Star,

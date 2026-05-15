@@ -1,6 +1,7 @@
 package com.lucas.predictaapp.data.local
 
 import androidx.room.TypeConverter
+import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.DateGroup
 import com.lucas.predictaapp.data.model.ExpenseSource
 import com.lucas.predictaapp.data.model.NotificationAction
@@ -11,6 +12,9 @@ import kotlinx.serialization.json.Json
 private val json = Json { ignoreUnknownKeys = true }
 
 class Converters {
+    @TypeConverter fun categoryTypeToString(v: CategoryType): String = v.name
+    @TypeConverter fun stringToCategoryType(v: String): CategoryType = CategoryType.valueOf(v)
+
     @TypeConverter fun expenseSourceToString(v: ExpenseSource): String = v.name
     @TypeConverter fun stringToExpenseSource(v: String): ExpenseSource = ExpenseSource.valueOf(v)
 

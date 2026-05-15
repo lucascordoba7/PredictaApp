@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class UserProfile(
     val name: String,
+    val email: String,
     val monthIncome: Int,
     val monthSpent: Int,
     val previousMonthSpent: Int,
@@ -21,6 +22,9 @@ data class Personality(
     val name: String,
     val description: String,
     val weeklySpike: String,
+    val spikeStat: String = "+318%",
+    val emoji: String = "🎉",
+    val accentColorKey: String = "amber",  // "amber" | "coral" | "green" | "blue" | "purple" | "teal" | "pink"
 )
 
 @Serializable
