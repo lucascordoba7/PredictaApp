@@ -65,6 +65,7 @@ import com.lucas.predictaapp.data.local.UserSetup
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
+import com.lucas.predictaapp.ui.utils.ThousandsVisualTransformation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -412,12 +413,11 @@ private fun SetupContent(
 
     var incomeText by remember { mutableStateOf("") }
     var paydayText by remember { mutableStateOf("") }
-    var fixedText by remember { mutableStateOf("") }
     var incomeError by remember { mutableStateOf(false) }
     var paydayError by remember { mutableStateOf(false) }
 
     fun validate(): Boolean {
-        incomeError = incomeText.replace(".", "").toIntOrNull() == null || incomeText.replace(".", "").toInt() <= 0
+        incomeError = incomeText.toIntOrNull() == null || incomeText.toInt() <= 0
         val day = paydayText.toIntOrNull()
         paydayError = day == null || day !in 1..31
         return !incomeError && !paydayError
@@ -452,13 +452,14 @@ private fun SetupContent(
         FieldLabel("¿Cuánto cobrás por mes? (ARS)")
         OnboardingTextField(
             value = incomeText,
-            onValueChange = { incomeText = it.filter { c -> c.isDigit() || c == '.' }; incomeError = false },
-            placeholder = "900.000",
+            onValueChange = { incomeText = it.filter { c -> c.isDigit() }; incomeError = false },
+            placeholder = "900,000",
             isError = incomeError,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Next,
             ),
+            visualTransformation = ThousandsVisualTransformation,
             prefix = "$",
         )
         if (incomeError) FieldError("Ingresá un monto válido")
@@ -482,32 +483,12 @@ private fun SetupContent(
         if (paydayError) FieldError("Ingresá un día del 1 al 31")
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
 
-        FieldLabel("Gastos fijos del mes (alquiler, servicios…)")
-        OnboardingTextField(
-            value = fixedText,
-            onValueChange = { fixedText = it.filter { c -> c.isDigit() || c == '.' } },
-            placeholder = "250.000",
-            isError = false,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done,
-            ),
-            prefix = "$",
-        )
-        Text(
-            text = "Opcional — podés ajustarlo más tarde.",
-            style = PredictaTypography.caption,
-            color = PredictaColors.cream35,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
         AmberButton(label = "¡Listo! Empezar") {
             if (validate()) {
-                val income = incomeText.replace(".", "").toIntOrNull() ?: 0
+                val income = incomeText.toIntOrNull() ?: 0
                 val payday = paydayText.toIntOrNull() ?: 1
-                val fixed = fixedText.replace(".", "").toIntOrNull() ?: 0
                 scope.launch {
                     UserPreferencesRepository.completeOnboarding(
                         context,
@@ -516,7 +497,7 @@ private fun SetupContent(
                             email = regEmail,
                             income = income,
                             paydayDay = payday,
-                            fixedMonthly = fixed,
+                            fixedMonthly = 0,
                         ),
                     )
                     onFinish()

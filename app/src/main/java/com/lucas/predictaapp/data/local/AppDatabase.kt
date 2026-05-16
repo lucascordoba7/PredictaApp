@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lucas.predictaapp.data.model.Category
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
+import com.lucas.predictaapp.data.model.FixedExpense
 import com.lucas.predictaapp.data.model.Notification
 import com.lucas.predictaapp.data.model.Subscription
 import kotlinx.coroutines.CoroutineScope
@@ -17,8 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Expense::class, Subscription::class, Notification::class, Category::class],
-    version = 4,
+    entities = [Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class],
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -27,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun subscriptionDao(): SubscriptionDao
     abstract fun notificationDao(): NotificationDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun fixedExpenseDao(): FixedExpenseDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -44,6 +46,22 @@ abstract class AppDatabase : RoomDatabase() {
                     type TEXT NOT NULL,
                     isCustom INTEGER NOT NULL DEFAULT 0
                 )"""
+            )
+        }
+
+        private val MIGRATION_5_6 = Migration(5, 6) { db ->
+            db.execSQL("ALTER TABLE fixed_expenses ADD COLUMN paidMonthKey TEXT NOT NULL DEFAULT ''")
+        }
+
+        private val MIGRATION_4_5 = Migration(4, 5) { db ->
+            db.execSQL(
+                """CREATE TABLE IF NOT EXISTS fixed_expenses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    name TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
+                    dueDayOfMonth INTEGER NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1
+                )""",
             )
         }
 
@@ -89,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "predicta.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .addCallback(object : RoomDatabase.Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             CoroutineScope(Dispatchers.IO).launch {

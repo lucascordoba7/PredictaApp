@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -37,6 +38,7 @@ import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.Personality
 import com.lucas.predictaapp.data.model.UserProfile
 import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.MIN_EXPENSES_FOR_PERSONALITY
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.PersonalityRepository
@@ -57,11 +59,12 @@ fun ProfileScreen(
     val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
+    val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
     val scrollState = rememberScrollState()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     val income = userSetup?.income ?: 0
-    val fixedMonthly = userSetup?.fixedMonthly ?: 0
+    val fixedMonthly = fixedExpenses.sumOf { it.amount }
     val monthExpenses = remember(expenses) { expenses.filter { isCurrentMonth(it.dateMillis) } }
     val totalSpent = remember(monthExpenses) { monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount } }
     val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
@@ -129,6 +132,12 @@ fun ProfileScreen(
         ProfileMenuSection(
             title = "Finanzas",
             items = listOf(
+                MenuItem(
+                    icon = Icons.Default.Receipt,
+                    label = "Gastos Fijos",
+                    subtitle = "${fixedExpenses.size} configurados",
+                    route = Screen.FixedExpenses.route,
+                ),
                 MenuItem(
                     icon = Icons.Default.CreditCard,
                     label = "Suscripciones",

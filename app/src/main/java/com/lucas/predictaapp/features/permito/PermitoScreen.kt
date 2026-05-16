@@ -41,6 +41,7 @@ import com.lucas.predictaapp.data.model.CategorySpending
 import com.lucas.predictaapp.data.model.PermitoContext
 import com.lucas.predictaapp.data.model.PermitoOutput
 import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.PermitoRepository
 import com.lucas.predictaapp.features.permito.components.ClarifyCard
 import com.lucas.predictaapp.features.permito.components.PermitoInput
@@ -64,13 +65,14 @@ fun PermitoScreen() {
     val context = LocalContext.current
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
     val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
+    val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
 
     var state: PermitoUiState by remember { mutableStateOf(PermitoUiState.Input()) }
     val scope = rememberCoroutineScope()
 
     fun buildContext(): PermitoContext {
         val income = userSetup?.income ?: 0
-        val fixedMonthly = userSetup?.fixedMonthly ?: 0
+        val fixedMonthly = fixedExpenses.sumOf { it.amount }
         val paydayDay = userSetup?.paydayDay ?: 1
 
         val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }

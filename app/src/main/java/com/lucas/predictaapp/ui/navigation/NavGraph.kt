@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.lucas.predictaapp.features.chat.ChatScreen
 import com.lucas.predictaapp.features.dashboard.DashboardScreen
+import com.lucas.predictaapp.features.fixedexpenses.FixedExpensesScreen
 import com.lucas.predictaapp.features.notifications.NotificationsScreen
 import com.lucas.predictaapp.features.permito.PermitoScreen
 import com.lucas.predictaapp.features.profile.CategoriesScreen
@@ -53,6 +54,11 @@ fun PredictaNavGraph(
         }
         composable(Screen.Categories.route) {
             CategoriesScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.FixedExpenses.route) {
+            FixedExpensesScreen(
                 onBack = { navController.popBackStack() },
             )
         }

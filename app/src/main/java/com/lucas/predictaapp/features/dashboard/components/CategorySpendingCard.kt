@@ -31,14 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
+import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.theme.categoryColor
@@ -77,43 +76,69 @@ fun CategorySpendingCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Brush.verticalGradient(listOf(PredictaColors.surfaceMid, PredictaColors.surface)))
+            .background(PredictaColors.surface)
             .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(14.dp))
             .clickable(enabled = grouped.isNotEmpty()) { showSheet = true }
-            .padding(16.dp),
+            .padding(start = 17.dp, end = 14.dp, top = 14.dp, bottom = 12.dp),
     ) {
         // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "GASTOS DEL MES",
+                style = PredictaTypography.monoCap.copy(
+                    color = PredictaColors.cream60,
+                    letterSpacing = 0.5.sp,
+                ),
+            )
+            if (totalSpent > 0) {
+                Text(
+                    text = "$ ${totalSpent.fmtArs()}",
+                    style = PredictaTypography.monoCap.copy(
+                        fontFamily = IBMPlexMono,
+                        color = PredictaColors.cream,
+                        letterSpacing = 0.sp,
+                        fontSize = 11.sp,
+                    ),
+                )
+            }
+        }
+
+        // Month + % context
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = formatMonthYear(),
                 style = PredictaTypography.monoCap.copy(
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 2.sp,
-                    color = PredictaColors.cream60,
-                ),
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = if (totalSpent > 0) "$ ${totalSpent.fmtArs()}" else "Sin gastos aún",
-                style = PredictaTypography.bodyTight.copy(
-                    color = PredictaColors.cream,
-                    fontSize = 15.sp,
-                    letterSpacing = (-0.3).sp,
+                    color = PredictaColors.cream35,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.sp,
                 ),
             )
+            if (income > 0 && totalSpent > 0) {
+                Text(
+                    text = "$usedPct% del ingreso",
+                    style = PredictaTypography.monoCap.copy(
+                        color = PredictaColors.cream35,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.5.sp,
+                    ),
+                )
+            }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
 
         // Stacked bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(5.dp)),
+                .height(6.dp)
+                .clip(RoundedCornerShape(999.dp)),
         ) {
             if (grouped.isEmpty()) {
                 Box(
@@ -146,55 +171,17 @@ fun CategorySpendingCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Stats row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Color dot legend (top 4)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f),
-            ) {
-                grouped.take(4).forEach { (cat, _) ->
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(colorFor(cat)),
-                    )
-                }
-                if (grouped.size > 4) {
-                    Text(
-                        text = "+${grouped.size - 4}",
-                        style = PredictaTypography.monoCap.copy(
-                            color = PredictaColors.cream35,
-                            fontSize = 9.sp,
-                        ),
-                    )
-                }
-            }
+        if (grouped.isEmpty()) {
+            Spacer(Modifier.height(10.dp))
             Text(
-                text = "$usedPct% del ingreso",
-                style = PredictaTypography.monoCap.copy(
-                    color = PredictaColors.cream35,
-                    fontSize = 9.5.sp,
-                    letterSpacing = 0.8.sp,
-                ),
+                text = "Sin gastos registrados este mes",
+                style = PredictaTypography.small.copy(color = PredictaColors.cream35),
             )
-        }
-
-        // Top 3 categories
-        if (grouped.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(PredictaColors.line))
-            Spacer(modifier = Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 grouped.take(3).forEach { (cat, amount) ->
-                    TopCategoryRow(
+                    CategoryRow(
                         cat = cat,
                         amount = amount,
                         totalSpent = totalSpent,
@@ -202,28 +189,13 @@ fun CategorySpendingCard(
                         colorFor = colorFor,
                     )
                 }
-                if (grouped.size > 3) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "ver todas",
-                            style = PredictaTypography.small.copy(
-                                color = PredictaColors.amber,
-                                fontSize = 11.sp,
-                            ),
-                        )
-                        Text(
-                            text = " →",
-                            style = PredictaTypography.small.copy(
-                                color = PredictaColors.amber,
-                                fontSize = 11.sp,
-                            ),
-                        )
-                    }
-                }
+            }
+            if (grouped.size > 3) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Ver todas (${grouped.size}) →",
+                    style = PredictaTypography.small.copy(color = PredictaColors.amber),
+                )
             }
         }
     }
@@ -241,70 +213,57 @@ fun CategorySpendingCard(
                 income = income,
                 usedPct = usedPct,
                 emojiFor = emojiFor,
+                colorFor = colorFor,
             )
         }
     }
 }
 
 @Composable
-private fun TopCategoryRow(
+private fun CategoryRow(
     cat: String,
     amount: Int,
     totalSpent: Int,
-    emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
-    colorFor: (String) -> Color = { categoryColor(it) },
+    emojiFor: (String) -> String,
+    colorFor: (String) -> Color,
 ) {
     val color = colorFor(cat)
-    val fraction = if (totalSpent > 0) (amount.toFloat() / totalSpent).coerceIn(0f, 1f) else 0f
-    val pct = (fraction * 100).toInt()
+    val pct = if (totalSpent > 0) (amount.toFloat() / totalSpent * 100).toInt() else 0
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "${emojiFor(cat)}  $cat",
-                style = PredictaTypography.small.copy(
-                    color = PredictaColors.cream60,
-                    fontSize = 12.sp,
-                ),
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-            )
-            Text(
-                text = "$ ${amount.fmtArs()}",
-                style = PredictaTypography.bodyTight.copy(
-                    fontSize = 13.sp,
-                    color = PredictaColors.cream,
-                    letterSpacing = (-0.2).sp,
-                ),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "$pct%",
-                style = PredictaTypography.monoCap.copy(
-                    color = color,
-                    fontSize = 10.sp,
-                ),
-                modifier = Modifier.width(24.dp),
-                textAlign = TextAlign.End,
-            )
-        }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(PredictaColors.surfaceHigh),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .fillMaxHeight()
-                    .background(color.copy(alpha = 0.75f)),
-            )
-        }
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "${emojiFor(cat)}  $cat",
+            style = PredictaTypography.small.copy(color = PredictaColors.cream60, fontSize = 12.sp),
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = "$ ${amount.fmtArs()}",
+            style = PredictaTypography.small.copy(
+                fontFamily = IBMPlexMono,
+                fontSize = 12.sp,
+                color = PredictaColors.cream60,
+            ),
+        )
+        Text(
+            text = "  $pct%",
+            style = PredictaTypography.monoCap.copy(
+                color = color,
+                fontSize = 9.sp,
+            ),
+            modifier = Modifier.width(30.dp),
+        )
     }
 }
 
@@ -325,17 +284,16 @@ private fun CategoryBreakdownSheet(
             .padding(horizontal = 20.dp)
             .padding(bottom = 24.dp),
     ) {
-        // Sheet header
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "GASTOS POR CATEGORÍA",
+                    text = "GASTOS DEL MES",
                     style = PredictaTypography.monoCap.copy(
                         color = PredictaColors.cream35,
-                        letterSpacing = 1.8.sp,
+                        letterSpacing = 1.5.sp,
                         fontSize = 9.5.sp,
                     ),
                 )
@@ -357,13 +315,15 @@ private fun CategoryBreakdownSheet(
                         letterSpacing = (-0.5).sp,
                     ),
                 )
-                Text(
-                    text = "$usedPct% de $ ${income.fmtArs()}",
-                    style = PredictaTypography.monoCap.copy(
-                        color = PredictaColors.cream35,
-                        fontSize = 10.sp,
-                    ),
-                )
+                if (income > 0) {
+                    Text(
+                        text = "$usedPct% de $ ${income.fmtArs()}",
+                        style = PredictaTypography.monoCap.copy(
+                            color = PredictaColors.cream35,
+                            fontSize = 10.sp,
+                        ),
+                    )
+                }
             }
         }
 
@@ -377,57 +337,57 @@ private fun CategoryBreakdownSheet(
                 val barFraction = if (totalSpent > 0) (amount.toFloat() / totalSpent).coerceIn(0f, 1f) else 0f
                 val color = colorFor(cat)
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(9.dp)
-                            .clip(CircleShape)
-                            .background(color),
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "${emojiFor(cat)}  $cat",
-                        style = PredictaTypography.body.copy(
-                            color = PredictaColors.cream,
-                            fontSize = 14.sp,
-                        ),
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    // Mini bar
-                    Box(
-                        modifier = Modifier
-                            .width(64.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(PredictaColors.surfaceHigh),
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(barFraction)
-                                .height(4.dp)
+                                .size(8.dp)
+                                .clip(CircleShape)
                                 .background(color),
                         )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(horizontalAlignment = Alignment.End) {
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "${emojiFor(cat)}  $cat",
+                            style = PredictaTypography.body.copy(
+                                color = PredictaColors.cream,
+                                fontSize = 14.sp,
+                            ),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "$ ${amount.fmtArs()}",
                             style = PredictaTypography.bodyTight.copy(
+                                fontFamily = IBMPlexMono,
                                 color = PredictaColors.cream,
                                 fontSize = 13.sp,
                                 letterSpacing = (-0.2).sp,
                             ),
                         )
                         Text(
-                            text = "$pct%",
+                            text = "  $pct%",
                             style = PredictaTypography.monoCap.copy(
-                                color = PredictaColors.cream35,
+                                color = color,
                                 fontSize = 9.5.sp,
                             ),
+                            modifier = Modifier.width(32.dp),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(PredictaColors.surfaceHigh),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(barFraction)
+                                .height(3.dp)
+                                .background(color.copy(alpha = 0.7f)),
                         )
                     }
                 }

@@ -45,18 +45,21 @@ import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.ui.theme.categoryColor
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.model.FixedExpenseStatus
+import com.lucas.predictaapp.data.model.computeStatus
+import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.features.dashboard.components.AddGoalCard
 import com.lucas.predictaapp.features.dashboard.components.AvailableNowCard
 import com.lucas.predictaapp.features.dashboard.components.CategorySpendingCard
 import com.lucas.predictaapp.features.dashboard.components.DashboardHeader
+import com.lucas.predictaapp.features.dashboard.components.FixedExpensesCard
 import com.lucas.predictaapp.features.dashboard.components.SectionLabel
 import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
 import com.lucas.predictaapp.features.dashboard.components.ZombiesCard
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
-import com.lucas.predictaapp.ui.utils.getDaysToPayday
 import com.lucas.predictaapp.ui.utils.isCurrentMonth
 
 @Composable
@@ -67,6 +70,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
     val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
+    val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
 
     val expenseCategoryNames = remember(allCategories) {
         allCategories.filter { it.type == CategoryType.EXPENSE }.map { it.name }.toSet()
@@ -87,16 +91,17 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
 
     val name = userSetup?.name ?: ""
     val income = userSetup?.income ?: 0
-    val paydayDay = userSetup?.paydayDay ?: 1
-    val fixedMonthly = userSetup?.fixedMonthly ?: 0
+    val fixedMonthly = fixedExpenses.sumOf { it.amount }
+    val totalFixedPaid = fixedExpenses.filter {
+        it.computeStatus() == com.lucas.predictaapp.data.model.FixedExpenseStatus.PAGADO
+    }.sumOf { it.amount }
+    val totalFixedPending = fixedMonthly - totalFixedPaid
 
     val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
     val totalSpent = monthExpenses.filter {
         expenseCategoryNames?.contains(it.category) ?: (it.category != "Ingreso")
     }.sumOf { it.amount }
     val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
-    val daysToPayday = getDaysToPayday(paydayDay)
-    val dailyBudget = if (daysToPayday > 0) availableNow / daysToPayday else availableNow
 
     val zombies = subscriptions.filter { it.zombie }
 
@@ -128,8 +133,10 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
             StaggerCard(2, visible) {
                 AvailableNowCard(
                     availableNow = availableNow,
-                    daysToPayday = daysToPayday,
-                    dailyBudget = dailyBudget,
+                    income = income,
+                    totalSpent = totalSpent,
+                    totalFixedPaid = totalFixedPaid,
+                    totalFixedPending = totalFixedPending,
                 )
             }
         }
@@ -144,25 +151,28 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                 )
             }
         }
-        item { StaggerCard(4, visible) { SectionLabel("Tus metas") } }
         item {
-            StaggerCard(5, visible) { AddGoalCard() }
+            StaggerCard(4, visible) {
+                FixedExpensesCard(
+                    items = fixedExpenses,
+                    onManageClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.FixedExpenses.route) },
+                )
+            }
         }
+        item { StaggerCard(5, visible) { SectionLabel("Tus metas") } }
+        item { StaggerCard(6, visible) { AddGoalCard() } }
         if (zombies.isNotEmpty()) {
-            item { StaggerCard(6, visible) { SectionLabel("Predicta detectó") } }
+            item { StaggerCard(7, visible) { SectionLabel("Predicta detectó") } }
             item {
-                StaggerCard(7, visible) {
-                    ZombiesCard(
-                        zombies = zombies,
-                        onCancel = {},
-                    )
+                StaggerCard(8, visible) {
+                    ZombiesCard(zombies = zombies, onCancel = {})
                 }
             }
         }
         if (expenses.isNotEmpty()) {
-            item { StaggerCard(8, visible) { SectionLabel("Actividad reciente") } }
+            item { StaggerCard(9, visible) { SectionLabel("Actividad reciente") } }
             item {
-                StaggerCard(9, visible) {
+                StaggerCard(10, visible) {
                     TransactionsCard(
                         expenses = expenses,
                         onDelete = { expense -> scope.launch { ExpensesRepository.delete(expense.id) } },
