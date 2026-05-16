@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.predictaapp.ui.components.AnimatedAmount
 import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
@@ -68,8 +69,8 @@ fun AvailableNowCard(
             }
         }
 
-        Text(
-            text = "$ ${availableNow.fmtArs()}",
+        AnimatedAmount(
+            value = availableNow,
             style = PredictaTypography.bodyTight.copy(
                 fontFamily = IBMPlexMono,
                 fontSize = 28.sp,
@@ -78,6 +79,7 @@ fun AvailableNowCard(
                 color = PredictaColors.cream,
             ),
             modifier = Modifier.padding(bottom = 14.dp),
+            formatter = { "$ ${it.fmtArs()}" },
         )
 
         if (income > 0) {

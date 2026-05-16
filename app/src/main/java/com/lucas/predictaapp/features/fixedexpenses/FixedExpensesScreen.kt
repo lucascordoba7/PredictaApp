@@ -63,6 +63,7 @@ import com.lucas.predictaapp.data.model.FixedExpense
 import com.lucas.predictaapp.data.model.FixedExpenseStatus
 import com.lucas.predictaapp.data.model.computeStatus
 import com.lucas.predictaapp.data.repository.FixedExpensesRepository
+import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
@@ -107,6 +108,7 @@ fun FixedExpensesScreen(onBack: () -> Unit) {
             .fillMaxSize()
             .background(PredictaColors.charcoal),
     ) {
+        PredictaPullRefresh(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -304,6 +306,7 @@ fun FixedExpensesScreen(onBack: () -> Unit) {
                             item = item,
                             status = FixedExpenseStatus.VENCIDO,
                             onTogglePaid = { scope.launch { FixedExpensesRepository.togglePaid(item) } },
+                            modifier = Modifier.animateItem(),
                         )
                     }
                 }
@@ -315,6 +318,7 @@ fun FixedExpensesScreen(onBack: () -> Unit) {
                             item = item,
                             status = FixedExpenseStatus.PENDIENTE,
                             onTogglePaid = { scope.launch { FixedExpensesRepository.togglePaid(item) } },
+                            modifier = Modifier.animateItem(),
                         )
                     }
                 }
@@ -326,6 +330,7 @@ fun FixedExpensesScreen(onBack: () -> Unit) {
                             item = item,
                             status = FixedExpenseStatus.PAGADO,
                             onTogglePaid = { scope.launch { FixedExpensesRepository.togglePaid(item) } },
+                            modifier = Modifier.animateItem(),
                         )
                     }
                 }
@@ -371,9 +376,11 @@ fun FixedExpensesScreen(onBack: () -> Unit) {
                         accentColor = color,
                         onEdit = { editingItem = item; showSheet = true },
                         onDelete = { deletingItem = item },
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
+        }
         }
 
         // ── FAB agregar (solo en Gestionar) ──
@@ -515,6 +522,7 @@ private fun ChecklistRow(
     item: FixedExpense,
     status: FixedExpenseStatus,
     onTogglePaid: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val isPaid = status == FixedExpenseStatus.PAGADO
     val accentColor = when (status) {
@@ -525,7 +533,7 @@ private fun ChecklistRow(
     val surface = PredictaColors.surface
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PredictaDimensions.Spacing.screenPadding, vertical = 4.dp)
             .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
@@ -602,9 +610,10 @@ private fun ManageRow(
     accentColor: Color,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PredictaDimensions.Spacing.screenPadding, vertical = 4.dp)
             .clip(RoundedCornerShape(PredictaDimensions.Radius.card))

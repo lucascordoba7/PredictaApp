@@ -34,6 +34,7 @@ import com.lucas.predictaapp.data.model.DateGroup
 import com.lucas.predictaapp.data.model.Notification
 import com.lucas.predictaapp.data.model.NotificationAction
 import com.lucas.predictaapp.data.repository.NotificationsRepository
+import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -46,34 +47,41 @@ fun NotificationsScreen(onBack: () -> Unit) {
 
     fun dismiss(id: String) = scope.launch { NotificationsRepository.dismiss(id) }
 
-    LazyColumn(
+    PredictaPullRefresh(
         modifier = Modifier
             .fillMaxSize()
             .background(PredictaColors.charcoal),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            bottom = PredictaDimensions.Spacing.xxl,
-        ),
     ) {
-        item {
-            TopBar(unreadCount = items.count { it.unread }, onBack = onBack)
-        }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PredictaColors.charcoal),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                bottom = PredictaDimensions.Spacing.xxl,
+            ),
+        ) {
+            item {
+                TopBar(unreadCount = items.count { it.unread }, onBack = onBack)
+            }
 
-        val groups = listOf(
-            DateGroup.TODAY to "Hoy",
-            DateGroup.YESTERDAY to "Ayer",
-            DateGroup.OLDER to "Más antiguas",
-        )
-        groups.forEach { (group, label) ->
-            val groupItems = items.filter { it.dateGroup == group }
-            if (groupItems.isNotEmpty()) {
-                item {
-                    SectionHeader(label)
-                }
-                items(groupItems, key = { it.id }) { notif ->
-                    NotificationCard(
-                        notification = notif,
-                        onDismiss = { dismiss(notif.id) },
-                    )
+            val groups = listOf(
+                DateGroup.TODAY to "Hoy",
+                DateGroup.YESTERDAY to "Ayer",
+                DateGroup.OLDER to "Más antiguas",
+            )
+            groups.forEach { (group, label) ->
+                val groupItems = items.filter { it.dateGroup == group }
+                if (groupItems.isNotEmpty()) {
+                    item {
+                        SectionHeader(label)
+                    }
+                    items(groupItems, key = { it.id }) { notif ->
+                        NotificationCard(
+                            notification = notif,
+                            onDismiss = { dismiss(notif.id) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
                 }
             }
         }
@@ -133,11 +141,12 @@ private fun SectionHeader(label: String) {
 private fun NotificationCard(
     notification: Notification,
     onDismiss: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val borderColor = if (notification.unread) PredictaColors.amberEdge else PredictaColors.line
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(
                 horizontal = PredictaDimensions.Spacing.screenPadding,

@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.predictaapp.data.model.Subscription
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+import com.lucas.predictaapp.ui.components.AnimatedAmount
+import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -50,29 +52,43 @@ fun SubscriptionsScreen(onBack: () -> Unit) {
 
     fun cancel(sub: Subscription) = scope.launch { SubscriptionsRepository.cancel(sub.id) }
 
-    LazyColumn(
+    PredictaPullRefresh(
         modifier = Modifier
             .fillMaxSize()
             .background(PredictaColors.charcoal),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            bottom = PredictaDimensions.Spacing.xxl,
-        ),
     ) {
-        item {
-            TopBar(totalMonthly = totalMonthly, onBack = onBack)
-        }
-
-        if (zombies.isNotEmpty()) {
-            item { SectionHeader("🧟 Zombies — no las usás") }
-            items(zombies, key = { it.id }) { sub ->
-                SubscriptionCard(sub = sub, onCancel = { cancel(sub); Unit })
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PredictaColors.charcoal),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                bottom = PredictaDimensions.Spacing.xxl,
+            ),
+        ) {
+            item {
+                TopBar(totalMonthly = totalMonthly, onBack = onBack)
             }
-        }
 
-        if (active.isNotEmpty()) {
-            item { SectionHeader("✅ Activas") }
-            items(active, key = { it.id }) { sub ->
-                SubscriptionCard(sub = sub, onCancel = null)
+            if (zombies.isNotEmpty()) {
+                item { SectionHeader("🧟 Zombies — no las usás") }
+                items(zombies, key = { it.id }) { sub ->
+                    SubscriptionCard(
+                        sub = sub,
+                        onCancel = { cancel(sub); Unit },
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+            }
+
+            if (active.isNotEmpty()) {
+                item { SectionHeader("✅ Activas") }
+                items(active, key = { it.id }) { sub ->
+                    SubscriptionCard(
+                        sub = sub,
+                        onCancel = null,
+                        modifier = Modifier.animateItem(),
+                    )
+                }
             }
         }
     }
@@ -122,10 +138,11 @@ private fun TopBar(totalMonthly: Int, onBack: () -> Unit) {
                     style = PredictaTypography.caption,
                     color = PredictaColors.cream35,
                 )
-                Text(
-                    text = "\$${totalMonthly.fmtArs()}",
+                AnimatedAmount(
+                    value = totalMonthly,
                     style = PredictaTypography.kpiInline,
                     color = PredictaColors.cream,
+                    formatter = { "\$${it.fmtArs()}" },
                 )
             }
             Text(
@@ -154,13 +171,14 @@ private fun SectionHeader(label: String) {
 private fun SubscriptionCard(
     sub: Subscription,
     onCancel: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     val isZombie = sub.zombie
     val accentColor = if (isZombie) PredictaColors.coral else PredictaColors.green
     val accentSoft = if (isZombie) PredictaColors.coralSoft else PredictaColors.greenSoft
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(
                 horizontal = PredictaDimensions.Spacing.screenPadding,

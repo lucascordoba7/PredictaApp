@@ -58,6 +58,7 @@ import com.lucas.predictaapp.features.dashboard.components.FixedExpensesCard
 import com.lucas.predictaapp.features.dashboard.components.SectionLabel
 import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
 import com.lucas.predictaapp.features.dashboard.components.ZombiesCard
+import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.utils.isCurrentMonth
@@ -109,6 +110,11 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
+    PredictaPullRefresh(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PredictaColors.charcoal),
+    ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -182,6 +188,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                 }
             }
         }
+    }
     }
 }
 
