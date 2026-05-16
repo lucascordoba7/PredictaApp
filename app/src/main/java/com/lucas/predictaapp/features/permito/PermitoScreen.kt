@@ -37,9 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
-import com.lucas.predictaapp.data.model.ActiveGoal
 import com.lucas.predictaapp.data.model.CategorySpending
-import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.data.model.PermitoContext
 import com.lucas.predictaapp.data.model.PermitoOutput
 import com.lucas.predictaapp.data.repository.ExpensesRepository
@@ -71,9 +69,8 @@ fun PermitoScreen() {
     val scope = rememberCoroutineScope()
 
     fun buildContext(): PermitoContext {
-        val user = Fixtures.user
-        val income = userSetup?.income ?: user.monthIncome
-        val fixedMonthly = userSetup?.fixedMonthly ?: user.fixedMonthly
+        val income = userSetup?.income ?: 0
+        val fixedMonthly = userSetup?.fixedMonthly ?: 0
         val paydayDay = userSetup?.paydayDay ?: 1
 
         val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
@@ -92,7 +89,7 @@ fun PermitoScreen() {
             fixedPending = fixedMonthly,
             daysToPayday = daysToPayday,
             monthlyBudgetLeft = monthlyBudgetLeft,
-            activeGoals = listOf(ActiveGoal("Viaje a Chile", Fixtures.groupGoal.current, Fixtures.groupGoal.target)),
+            activeGoals = emptyList(),
             monthlySpending = spending,
         )
     }

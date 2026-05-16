@@ -10,7 +10,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lucas.predictaapp.data.model.Category
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
-import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.data.model.Notification
 import com.lucas.predictaapp.data.model.Subscription
 import kotlinx.coroutines.CoroutineScope
@@ -95,8 +94,6 @@ abstract class AppDatabase : RoomDatabase() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             CoroutineScope(Dispatchers.IO).launch {
                                 INSTANCE?.let { database ->
-                                    database.subscriptionDao().upsertAll(Fixtures.subscriptions)
-                                    database.notificationDao().upsertAll(Fixtures.notifications)
                                     database.categoryDao().insertAll(ExpenseCategories.seed)
                                 }
                             }

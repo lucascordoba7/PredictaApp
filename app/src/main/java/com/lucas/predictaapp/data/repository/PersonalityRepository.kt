@@ -2,7 +2,6 @@ package com.lucas.predictaapp.data.repository
 
 import android.util.Log
 import com.lucas.predictaapp.data.model.Expense
-import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.data.model.Personality
 import com.lucas.predictaapp.data.remote.ApiProvider
 import com.lucas.predictaapp.data.remote.ChatCompletionRequest
@@ -72,8 +71,8 @@ object PersonalityRepository {
             cacheFingerprint = fingerprint
             result
         } catch (e: Exception) {
-            Log.w(TAG, "Personality analysis failed, using fallback", e)
-            Fixtures.user.personality
+            Log.w(TAG, "Personality analysis failed", e)
+            throw e
         }
     }
 

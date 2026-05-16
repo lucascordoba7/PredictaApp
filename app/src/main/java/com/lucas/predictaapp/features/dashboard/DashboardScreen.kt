@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.Color
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.ExpenseCategories
-import com.lucas.predictaapp.data.model.Fixtures
 import com.lucas.predictaapp.ui.theme.categoryColor
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
@@ -86,10 +85,10 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         fn
     }
 
-    val name = userSetup?.name ?: Fixtures.user.name
-    val income = userSetup?.income ?: Fixtures.user.monthIncome
+    val name = userSetup?.name ?: ""
+    val income = userSetup?.income ?: 0
     val paydayDay = userSetup?.paydayDay ?: 1
-    val fixedMonthly = userSetup?.fixedMonthly ?: Fixtures.user.fixedMonthly
+    val fixedMonthly = userSetup?.fixedMonthly ?: 0
 
     val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
     val totalSpent = monthExpenses.filter {

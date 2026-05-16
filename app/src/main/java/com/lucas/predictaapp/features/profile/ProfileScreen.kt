@@ -34,13 +34,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
-import com.lucas.predictaapp.data.model.Fixtures
+import com.lucas.predictaapp.data.model.Personality
+import com.lucas.predictaapp.data.model.UserProfile
 import com.lucas.predictaapp.data.repository.ExpensesRepository
 import com.lucas.predictaapp.data.repository.MIN_EXPENSES_FOR_PERSONALITY
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.PersonalityRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
-import com.lucas.predictaapp.features.dashboard.components.HealthCard
 import com.lucas.predictaapp.ui.navigation.Screen
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
@@ -60,18 +60,24 @@ fun ProfileScreen(
     val scrollState = rememberScrollState()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
-    val income = userSetup?.income ?: Fixtures.user.monthIncome
-    val fixedMonthly = userSetup?.fixedMonthly ?: Fixtures.user.fixedMonthly
+    val income = userSetup?.income ?: 0
+    val fixedMonthly = userSetup?.fixedMonthly ?: 0
     val monthExpenses = remember(expenses) { expenses.filter { isCurrentMonth(it.dateMillis) } }
     val totalSpent = remember(monthExpenses) { monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount } }
     val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
 
-    val user = Fixtures.user.copy(
-        name = userSetup?.name ?: Fixtures.user.name,
-        email = userSetup?.email ?: Fixtures.user.email,
+    val user = UserProfile(
+        name = userSetup?.name ?: "",
+        email = userSetup?.email ?: "",
         monthIncome = income,
         monthSpent = totalSpent,
+        previousMonthSpent = 0,
+        monthProjected = 0,
+        score = 0,
+        fixedMonthly = fixedMonthly,
         availableNow = availableNow,
+        daysToPayday = 0,
+        personality = Personality(name = "", description = "", weeklySpike = ""),
     )
 
     var personalityState by remember {
@@ -79,15 +85,19 @@ fun ProfileScreen(
     }
 
     LaunchedEffect(monthExpenses.size, totalSpent) {
-        personalityState = if (monthExpenses.size < MIN_EXPENSES_FOR_PERSONALITY) {
-            PersonalityBannerState.Insufficient(
+        if (monthExpenses.size < MIN_EXPENSES_FOR_PERSONALITY) {
+            personalityState = PersonalityBannerState.Insufficient(
                 transactionCount = monthExpenses.size,
                 requiredCount = MIN_EXPENSES_FOR_PERSONALITY,
             )
         } else {
-            PersonalityBannerState.Loading
-            val personality = PersonalityRepository.analyze(monthExpenses, income, fixedMonthly)
-            PersonalityBannerState.Ready(personality)
+            personalityState = PersonalityBannerState.Loading
+            personalityState = runCatching {
+                PersonalityRepository.analyze(monthExpenses, income, fixedMonthly)
+            }.fold(
+                onSuccess = { PersonalityBannerState.Ready(it) },
+                onFailure = { PersonalityBannerState.Insufficient(monthExpenses.size, MIN_EXPENSES_FOR_PERSONALITY) },
+            )
         }
     }
 
@@ -114,10 +124,6 @@ fun ProfileScreen(
             onPress = null,
         )
 
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
-
-        HealthCard(score = user.score, delta = 6)
-
         Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.lg))
 
         ProfileMenuSection(
@@ -137,7 +143,6 @@ fun ProfileScreen(
                 MenuItem(
                     icon = Icons.Default.Star,
                     label = "Score crediticio",
-                    subtitle = "${user.score}/100",
                     disabled = true,
                 ),
             ),
