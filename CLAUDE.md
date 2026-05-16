@@ -5,47 +5,59 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```shell
-# Build debug APK
-.\gradlew assembleDebug
+# Build debug APK (Windows: .\gradlew  · Linux/macOS: ./gradlew)
+./gradlew assembleDebug
 
 # Unit tests (JVM, no device needed)
-.\gradlew test
+./gradlew test
 
 # Run a single unit test class
-.\gradlew test --tests "com.lucas.predictaapp.ExampleUnitTest"
+./gradlew test --tests "com.lucas.predictaapp.ExampleUnitTest"
 
 # Run a single unit test method
-.\gradlew test --tests "com.lucas.predictaapp.ExampleUnitTest.addition_isCorrect"
+./gradlew test --tests "com.lucas.predictaapp.ExampleUnitTest.addition_isCorrect"
 
 # Instrumented tests (requires connected device/emulator)
-.\gradlew connectedAndroidTest
+./gradlew connectedAndroidTest
 ```
 
 ## Key Versions
 
-- AGP 8.7.3, Kotlin 2.1.0, Compose BOM 2025.02.00
+- AGP 8.7.3, Kotlin 2.1.0, KSP 2.1.0-1.0.29, Compose BOM 2025.02.00
 - compileSdk = 35, targetSdk = 35, minSdk = 26
 - Java 11 bytecode target
+- Room 2.7.0, Navigation Compose 2.8.8, DataStore 1.1.2
+- Retrofit 2.11.0, OkHttp 4.12.0, Ktor 3.0.3 (transport para Supabase)
+- Supabase 3.0.2 (postgrest-kt), kotlinx.serialization 1.7.3
 
 ## Architecture
 
-Single-module project (`:app`), Kotlin-only, no Java. No DI framework, no ViewModels.
+Single-module project (`:app`), Kotlin-only, no Java. **No DI framework, no ViewModels** — todo el estado vive en `mutableStateOf` dentro de los composables (deuda explícita, ver `PLAN.md` PTA-018).
 
-**Entry point:** `MainActivity` → `PredictaApp()` composable (in `MainActivity.kt`) wraps a `Scaffold` with a `BottomNavigationBar` and `PredictaNavGraph`.
+**Entry point:** `MainActivity` → `PredictaApp()` composable (en `PredictaApp.kt`) envuelve un `Scaffold` con `BottomNavigationBar` + `PredictaNavGraph`.
 
-**Navigation:** `ui/navigation/` — `Screen` sealed class defines routes. `bottomNavScreens` drives which routes show the bottom bar. Four active destinations: `Dashboard`, `Permito`, `Chat`, `Profile`. `Subscriptions` and `Notifications` are defined but not yet wired into the nav graph.
+**Navigation:** `ui/navigation/` — `Screen` sealed class define rutas. `bottomNavScreens` decide qué destinos muestran la bottom bar.
+- Root tabs (con bottom bar): `Dashboard`, `Permito`, `Chat`, `Profile`.
+- Detail screens (push): `Notifications`, `Subscriptions`, `Categories`, `FixedExpenses`.
+- Transiciones del NavGraph: fade entre tabs raíz, slide horizontal + fade para detail screens (`NavGraph.kt`).
 
-**Feature screens:** `features/{dashboard,permito,chat,profile}/` — currently all stubs. Each will grow its own composables in that package.
+**Feature screens** (todas implementadas, no stubs): `features/{dashboard,permito,chat,profile,onboarding,fixedexpenses,notifications,subscriptions,quickactions}/`. Cada feature agrupa sus composables y, cuando aplica, una subcarpeta `components/` con las cards reutilizables (ver `features/dashboard/components/`).
 
 **Data layer:**
-- `data/model/` — `@Serializable` data classes: `Expense`, `Subscription`, `Notification`, `User`, `Fixtures` (static sample data seeded into repositories).
-- `data/repository/ExpensesRepository` — in-memory `object` singleton backed by `MutableStateFlow<List<Expense>>`.
-- `data/remote/ApiProvider` — singleton `object` that lazily builds two Retrofit clients: `anthropicApi` (Claude) and `openAiApi`. API keys are read from `local.properties` and exposed via `BuildConfig.ANTHROPIC_API_KEY` / `BuildConfig.OPENAI_API_KEY`.
+- `data/model/` — `@Serializable` data classes: `Expense`, `Subscription`, `Notification`, `FixedExpense`, `Category`, `ExpenseCategory`, `Permito`, `User`. `Fixtures` ya fue removido (PTA-007) — los repos hidratan desde Room directamente con empty states reales.
+- `data/local/` — **Room** (`AppDatabase`) con DAOs: `CategoryDao`, `ExpenseDao`, `FixedExpenseDao`, `NotificationDao`, `SubscriptionDao`. `Converters` para tipos custom. `UserPreferencesRepository` usa **DataStore Preferences** para perfil (nombre/email/ingreso) y flags de onboarding.
+- `data/repository/` — repos por dominio: `CategoryRepository`, `ChatRepository`, `ExpensesRepository`, `FixedExpensesRepository`, `NotificationsRepository`, `PermitoRepository`, `PersonalityRepository`, `SubscriptionsRepository`. Exponen `StateFlow`/`Flow`; suspend functions para mutaciones.
+- `data/remote/` — `ApiProvider` (singleton) construye lazy: `anthropicApi` (Claude), `openAiApi`, `GroqApi`. `SupabaseProvider` para el cliente Supabase (postgrest + Ktor android). Claves vía `BuildConfig`.
+
+**UI shared components:** `ui/components/`
+- `AnimatedAmount` — `AnimatedContent` con slide vertical + fade para montos que cambian.
+- `PredictaPullRefresh` — wrapper `PullToRefreshBox` themed (amber sobre surface). Acepta `onRefresh` opcional; si es null igual da feedback ~700ms.
 
 **Design system** (do not use Material3 theme tokens directly — use these instead):
-- `PredictaColors` — dark palette (charcoal background, amber accent, cream text).
+- `PredictaColors` — paleta dark (charcoal background, amber accent, cream text, coral/green/pending para estados).
 - `PredictaTypography` — IBM Plex Sans (regular/medium/semibold/bold) + IBM Plex Mono. Named scales: `scoreHero`, `titlePage`, `section`, `cardTitle`, `body`, `bodyTight`, `small`, `caption`, `monoCap`, `kpiInline`.
-- `PredictaDimensions` — `Spacing`, `Radius`, `Heights` objects with named dp values.
+- `PredictaDimensions` — `Spacing`, `Radius`, `Heights` objects con valores nombrados.
+- `CategoryColors` — paleta para chips/avatares de categorías.
 
 ## Version Catalog
 
@@ -57,6 +69,9 @@ Add to `local.properties` (not committed):
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
+GROQ_API_KEY=gsk_...
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...
 ```
 
 ## Conventions
@@ -64,4 +79,15 @@ OPENAI_API_KEY=sk-...
 - Kotlin code style: `official` (set in `gradle.properties`).
 - Package root: `com.lucas.predictaapp`.
 - No CI/CD pipeline configured.
-- Unit tests in `app/src/test/` use JUnit 4. Instrumented tests in `app/src/androidTest/` use `AndroidJUnit4` runner; Compose UI test deps are declared but not yet used.
+- No crash reporting integrated (decisión abierta — ver `PLAN.md` §5).
+- `isMinifyEnabled = false` en release — bloqueante para publicar (PTA-020).
+- Unit tests en `app/src/test/` con JUnit 4 (solo el `Example` por ahora). Instrumented en `app/src/androidTest/` con `AndroidJUnit4`; deps de Compose UI test declaradas pero sin uso.
+- Copy en español rioplatense (target Argentina). Montos formateados con `fmtArs()` (separador de miles `.`).
+
+## Patrones recurrentes
+
+- **LazyColumn con listas mutables**: usar `items(list, key = { it.id })` + `Modifier.animateItem()` para inserción/eliminación suave.
+- **Pantallas con listas**: envolver en `PredictaPullRefresh` para que el gesto de pull-to-refresh sea consistente.
+- **Montos en UI**: cuando el valor cambia en respuesta a acciones del usuario, usar `AnimatedAmount` en lugar de `Text` plano.
+- **Errores de Supabase**: actualmente hay catches silenciosos (PTA-008). Al agregar logging, mantener el patrón en todos los repos.
+- **Empty states**: nunca volver a Fixtures hardcoded. El repo emite lista vacía y la UI muestra el placeholder correspondiente.
