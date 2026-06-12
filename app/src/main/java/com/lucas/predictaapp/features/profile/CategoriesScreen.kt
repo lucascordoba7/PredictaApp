@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,6 +86,9 @@ fun CategoriesScreen(onBack: () -> Unit) {
     val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
     val expenseCategories = allCategories.filter { it.type == CategoryType.EXPENSE }
     val incomeCategories  = allCategories.filter { it.type == CategoryType.INCOME }
+
+    // Cada vez que se entra a la pantalla, rehidratar desde Supabase (la fuente compartida).
+    LaunchedEffect(Unit) { CategoryRepository.pullFromRemote() }
 
     val scope = rememberCoroutineScope()
     var editTarget by remember { mutableStateOf<Category?>(null) }
@@ -279,7 +283,7 @@ private fun CategorySection(
             categories.forEachIndexed { index, category ->
                 CategoryListRow(
                     category = category,
-                    onClick = { if (category.isCustom) onTap(category) },
+                    onClick = { onTap(category) },
                 )
                 if (index < categories.lastIndex) {
                     Box(
@@ -302,7 +306,7 @@ private fun CategoryListRow(category: Category, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = category.isCustom, onClick = onClick)
+            .clickable(enabled = true, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
         // Colored bubble (rounded square)
@@ -734,7 +738,7 @@ private fun EditorSheetContent(
         }
 
         // Delete (only for custom non-system categories in edit mode)
-        if (isEditing && isCustom && onDelete != null) {
+        if (isEditing && onDelete != null) {
             Spacer(modifier = Modifier.height(18.dp))
             FieldLabel("ACCIONES")
             Box(

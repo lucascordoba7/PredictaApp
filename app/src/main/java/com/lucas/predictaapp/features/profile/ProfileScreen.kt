@@ -56,7 +56,7 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
-    val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
+    val expenses by ExpensesRepository.expensesWithCategory.collectAsStateWithLifecycle(emptyList())
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
@@ -66,7 +66,7 @@ fun ProfileScreen(
     val income = userSetup?.income ?: 0
     val fixedMonthly = fixedExpenses.sumOf { it.amount }
     val monthExpenses = remember(expenses) { expenses.filter { isCurrentMonth(it.dateMillis) } }
-    val totalSpent = remember(monthExpenses) { monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount } }
+    val totalSpent = remember(monthExpenses) { monthExpenses.filter { !it.isIncome }.sumOf { it.amount } }
     val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
 
     val user = UserProfile(

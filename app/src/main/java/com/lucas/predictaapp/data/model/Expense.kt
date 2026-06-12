@@ -1,21 +1,67 @@
 package com.lucas.predictaapp.data.model
 
+import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.Relation
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@Entity(tableName = "expenses")
+@Entity(
+    tableName = "expenses",
+    foreignKeys = [
+        ForeignKey(
+            entity = Category::class,
+            parentColumns = ["id"],
+            childColumns = ["categoryId"],
+            // RESTRICT: no se borra una categoría con gastos sin antes reasignarlos.
+            // El flujo de borrado los mueve a "Otros" (ver CategoryRepository.delete).
+            onDelete = ForeignKey.RESTRICT,
+            onUpdate = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("categoryId")],
+)
 data class Expense(
+    // @EncodeDefault(ALWAYS): en un upsert en lote PostgREST rellena con NULL las claves
+    // omitidas (no aplica el default de Postgres), así que forzamos a que los campos con
+    // default siempre viajen en el JSON.
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val merchant: String,
-    val category: String,
+    val categoryId: Long,
     val amount: Int,
-    val whenLabel: String = "ahora",
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val source: ExpenseSource = ExpenseSource.MANUAL,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val dateMillis: Long = System.currentTimeMillis(),
 )
+
+/**
+ * Lectura relacional: un gasto junto a su categoría (join por categoryId).
+ * Los accessors delegados dejan que el código que antes leía `expense.category`/`amount`
+ * siga funcionando, ahora resolviendo el nombre/estilo desde la categoría real.
+ */
+data class ExpenseWithCategory(
+    @Embedded val expense: Expense,
+    @Relation(parentColumn = "categoryId", entityColumn = "id")
+    val categoryEntity: Category?,
+) {
+    val id: Long get() = expense.id
+    val merchant: String get() = expense.merchant
+    val amount: Int get() = expense.amount
+    val dateMillis: Long get() = expense.dateMillis
+    val category: String get() = categoryEntity?.name ?: "Otros"
+    val isIncome: Boolean get() = categoryEntity?.type == CategoryType.INCOME
+    val emoji: String get() = categoryEntity?.emoji ?: "💸"
+    val color: String get() = categoryEntity?.color ?: "#636E72"
+}
 
 @Serializable
 enum class ExpenseSource {

@@ -3,17 +3,33 @@
 --
 -- IMPORTANTE sobre los nombres de columna:
 -- postgrest-kt serializa con los nombres de propiedad Kotlin en camelCase
--- (whenLabel, dateMillis, usagePct, ...). Postgres baja a minúsculas todo
+-- (dateMillis, categoryId, usagePct, ...). Postgres baja a minúsculas todo
 -- identificador SIN comillas, así que las columnas camelCase van ENTRE COMILLAS
 -- dobles para que el upsert encuentre la columna exacta. No las saques.
 
+-- ───────────────────────── categories ───────────────────────
+-- Categorías de gasto/ingreso. El nombre es ÚNICO: no pueden existir dos
+-- categorías con el mismo nombre. type = EXPENSE | INCOME.
+-- Va PRIMERO porque expenses la referencia por FK.
+create table if not exists public.categories (
+    id          bigint  primary key,
+    name        text    not null unique,
+    emoji       text    not null,
+    color       text    not null default '#636E72',
+    type        text    not null,                    -- EXPENSE | INCOME
+    "isCustom"  boolean not null default false,
+    "sortOrder" integer not null default 0
+);
+
 -- ───────────────────────── expenses ─────────────────────────
+-- categoryId: FK a categories(id). Reemplaza el viejo `category` text suelto.
+-- ON UPDATE CASCADE: renombrar/reasignar ids se propaga. ON DELETE RESTRICT: no se
+-- borra una categoría con gastos sin antes reasignarlos (la app los mueve a "Otros").
 create table if not exists public.expenses (
     id           bigint  primary key,
     merchant     text    not null,
-    category     text    not null,
+    "categoryId" bigint  not null references public.categories(id) on update cascade on delete restrict,
     amount       integer not null,
-    "whenLabel"  text    not null default 'ahora',
     source       text    not null default 'MANUAL',  -- WHATSAPP_IMAGE | WHATSAPP_TEXT | WHATSAPP_AUDIO | MANUAL
     "dateMillis" bigint  not null
 );
@@ -63,19 +79,6 @@ create table if not exists public.profiles (
     income         integer not null default 0,
     "paydayDay"    integer not null default 1,
     "fixedMonthly" integer not null default 0
-);
-
--- ───────────────────────── categories ───────────────────────
--- Categorías de gasto/ingreso. El nombre es ÚNICO: no pueden existir dos
--- categorías con el mismo nombre. type = EXPENSE | INCOME.
-create table if not exists public.categories (
-    id          bigint  primary key,
-    name        text    not null unique,
-    emoji       text    not null,
-    color       text    not null default '#636E72',
-    type        text    not null,                    -- EXPENSE | INCOME
-    "isCustom"  boolean not null default false,
-    "sortOrder" integer not null default 0
 );
 
 -- ───────────────────────── seguridad ────────────────────────

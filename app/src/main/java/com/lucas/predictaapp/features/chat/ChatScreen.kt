@@ -185,33 +185,25 @@ fun ChatScreen() {
         messages[index] = msg.copy(confirmed = true)
         scope.launch {
             when (extraction) {
-                is ExpenseExtraction.Expense -> ExpensesRepository.add(
-                    Expense(
-                        merchant = extraction.merchant,
-                        category = extraction.category,
-                        amount = extraction.amount,
-                        whenLabel = extraction.whenLabel,
-                        dateMillis = extraction.dateMillis,
-                    )
+                is ExpenseExtraction.Expense -> ExpensesRepository.addByName(
+                    merchant = extraction.merchant,
+                    categoryName = extraction.category,
+                    amount = extraction.amount,
+                    dateMillis = extraction.dateMillis,
                 )
-                is ExpenseExtraction.Income -> ExpensesRepository.add(
-                    Expense(
-                        merchant = extraction.merchant,
-                        category = "Ingreso",
-                        amount = -extraction.amount,
-                        whenLabel = extraction.whenLabel,
-                        dateMillis = extraction.dateMillis,
-                    )
+                is ExpenseExtraction.Income -> ExpensesRepository.addByName(
+                    merchant = extraction.merchant,
+                    categoryName = "Ingreso",
+                    amount = -extraction.amount,
+                    dateMillis = extraction.dateMillis,
+                    income = true,
                 )
                 is ExpenseExtraction.MultiExpense -> extraction.expenses.forEach { exp ->
-                    ExpensesRepository.add(
-                        Expense(
-                            merchant = exp.merchant,
-                            category = exp.category,
-                            amount = exp.amount,
-                            whenLabel = exp.whenLabel,
-                            dateMillis = exp.dateMillis,
-                        )
+                    ExpensesRepository.addByName(
+                        merchant = exp.merchant,
+                        categoryName = exp.category,
+                        amount = exp.amount,
+                        dateMillis = exp.dateMillis,
                     )
                 }
                 is ExpenseExtraction.Subscription -> SubscriptionsRepository.upsert(

@@ -6,10 +6,11 @@ package com.lucas.predictaapp.data.repository
  */
 object SyncManager {
     suspend fun pullAll() {
+        // Categorías PRIMERO: los gastos tienen FK a categories, deben existir antes del upsert.
+        CategoryRepository.pullFromRemote()
         ExpensesRepository.pullFromRemote()
         SubscriptionsRepository.pullFromRemote()
         FixedExpensesRepository.pullFromRemote()
         NotificationsRepository.pullFromRemote()
-        CategoryRepository.pullFromRemote()
     }
 }

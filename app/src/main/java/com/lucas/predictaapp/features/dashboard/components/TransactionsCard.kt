@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
+import com.lucas.predictaapp.data.model.ExpenseWithCategory
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.theme.categoryColor
@@ -52,14 +53,14 @@ private val defaultStyle = CategoryStyle("💸", PredictaColors.surfaceHigh, Pre
 
 @Composable
 fun TransactionsCard(
-    expenses: List<Expense>,
+    expenses: List<ExpenseWithCategory>,
     onDelete: (Expense) -> Unit = {},
     onEdit: (Expense) -> Unit = {},
     onSeeAll: (() -> Unit)? = null,
     emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
     colorFor: (String) -> Color = { categoryColor(it) },
 ) {
-    var pendingDelete by remember { mutableStateOf<Expense?>(null) }
+    var pendingDelete by remember { mutableStateOf<ExpenseWithCategory?>(null) }
 
     Column(
         modifier = Modifier
@@ -110,11 +111,11 @@ fun TransactionsCard(
 
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(PredictaColors.line))
 
-        expenses.forEachIndexed { i, expense ->
+        expenses.forEachIndexed { i, item ->
             TransactionRow(
-                expense = expense,
-                onClick = { onEdit(expense) },
-                onLongClick = { pendingDelete = expense },
+                item = item,
+                onClick = { onEdit(item.expense) },
+                onLongClick = { pendingDelete = item },
                 emojiFor = emojiFor,
                 colorFor = colorFor,
             )
@@ -124,7 +125,7 @@ fun TransactionsCard(
         }
     }
 
-    pendingDelete?.let { expense ->
+    pendingDelete?.let { item ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             containerColor = PredictaColors.surface,
@@ -137,14 +138,14 @@ fun TransactionsCard(
             },
             text = {
                 Text(
-                    text = "${expense.merchant} · $${expense.amount.fmtArs()}",
+                    text = "${item.merchant} · $${item.amount.fmtArs()}",
                     style = PredictaTypography.small,
                     color = PredictaColors.cream60,
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
-                    onDelete(expense)
+                    onDelete(item.expense)
                     pendingDelete = null
                 }) {
                     Text("Eliminar", color = PredictaColors.coral)
@@ -162,18 +163,18 @@ fun TransactionsCard(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TransactionRow(
-    expense: Expense,
+    item: ExpenseWithCategory,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
     colorFor: (String) -> Color = { categoryColor(it) },
 ) {
-    val style = if (expense.category == "Ingreso") defaultStyle.copy(
+    val isIncome = item.isIncome
+    val style = if (isIncome) defaultStyle.copy(
         emoji = "💰",
         bg = PredictaColors.greenSoft,
         fg = PredictaColors.green,
-    ) else styleFor(expense.category, emojiFor, colorFor)
-    val isIncome = expense.category == "Ingreso"
+    ) else styleFor(item.category, emojiFor, colorFor)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -197,7 +198,7 @@ private fun TransactionRow(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = expense.merchant,
+                text = item.merchant,
                 style = PredictaTypography.small.copy(
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.5.sp,
@@ -207,7 +208,7 @@ private fun TransactionRow(
                 maxLines = 1,
             )
             Text(
-                text = expense.category,
+                text = item.category,
                 style = PredictaTypography.monoCap.copy(
                     fontSize = 11.sp,
                     color = PredictaColors.cream60,
@@ -218,7 +219,7 @@ private fun TransactionRow(
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "${if (isIncome) "+" else "−"}$${expense.amount.fmtArs()}",
+                text = "${if (isIncome) "+" else "−"}$${item.amount.fmtArs()}",
                 style = PredictaTypography.bodyTight.copy(
                     fontSize = 14.sp,
                     color = if (isIncome) PredictaColors.green else PredictaColors.cream,
@@ -226,7 +227,7 @@ private fun TransactionRow(
                 ),
             )
             Text(
-                text = relativeDateLabel(expense.dateMillis),
+                text = relativeDateLabel(item.dateMillis),
                 style = PredictaTypography.monoCap.copy(
                     fontSize = 10.5.sp,
                     color = PredictaColors.cream35,

@@ -35,8 +35,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
+import com.lucas.predictaapp.data.model.ExpenseWithCategory
 import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -47,17 +47,12 @@ import com.lucas.predictaapp.ui.utils.fmtArs
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategorySpendingCard(
-    expenses: List<Expense>,
+    expenses: List<ExpenseWithCategory>,
     income: Int,
     emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
     colorFor: (String) -> Color = { categoryColor(it) },
-    expenseCategoryNames: Set<String>? = null,
 ) {
-    val nonIncome = if (expenseCategoryNames != null) {
-        expenses.filter { it.category in expenseCategoryNames }
-    } else {
-        expenses.filter { it.category != "Ingreso" }
-    }
+    val nonIncome = expenses.filter { !it.isIncome }
     val totalSpent = nonIncome.sumOf { it.amount }
 
     val grouped = nonIncome

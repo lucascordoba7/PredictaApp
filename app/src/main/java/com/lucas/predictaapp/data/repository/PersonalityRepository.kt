@@ -1,7 +1,7 @@
 package com.lucas.predictaapp.data.repository
 
 import android.util.Log
-import com.lucas.predictaapp.data.model.Expense
+import com.lucas.predictaapp.data.model.ExpenseWithCategory
 import com.lucas.predictaapp.data.model.Personality
 import com.lucas.predictaapp.data.remote.ApiProvider
 import com.lucas.predictaapp.data.remote.ChatCompletionRequest
@@ -59,7 +59,7 @@ object PersonalityRepository {
     private var cachedPersonality: Personality? = null
     private var cacheFingerprint: String = "v3"
 
-    suspend fun analyze(expenses: List<Expense>, income: Int, fixedMonthly: Int): Personality {
+    suspend fun analyze(expenses: List<ExpenseWithCategory>, income: Int, fixedMonthly: Int): Personality {
         val fingerprint = "${expenses.size}_${expenses.sumOf { it.amount }}"
         cachedPersonality?.let { cached ->
             if (fingerprint == cacheFingerprint) return cached
@@ -76,7 +76,7 @@ object PersonalityRepository {
         }
     }
 
-    private suspend fun callGroq(expenses: List<Expense>, income: Int, fixedMonthly: Int): Personality {
+    private suspend fun callGroq(expenses: List<ExpenseWithCategory>, income: Int, fixedMonthly: Int): Personality {
         val response = ApiProvider.groqApi.chatCompletion(
             ChatCompletionRequest(
                 model = MODEL,
@@ -113,8 +113,8 @@ object PersonalityRepository {
         )
     }
 
-    private fun buildUserMessage(expenses: List<Expense>, income: Int, fixedMonthly: Int): String {
-        val spendingExpenses = expenses.filter { it.category != "Ingreso" }
+    private fun buildUserMessage(expenses: List<ExpenseWithCategory>, income: Int, fixedMonthly: Int): String {
+        val spendingExpenses = expenses.filter { !it.isIncome }
         val totalSpent = spendingExpenses.sumOf { it.amount }
         val spendingRatio = if (income > 0) totalSpent.toDouble() / income else 0.0
 

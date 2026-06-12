@@ -64,7 +64,7 @@ private sealed class PermitoUiState {
 fun PermitoScreen() {
     val context = LocalContext.current
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
-    val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
+    val expenses by ExpensesRepository.expensesWithCategory.collectAsStateWithLifecycle(emptyList())
     val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
 
     var state: PermitoUiState by remember { mutableStateOf(PermitoUiState.Input()) }
@@ -76,7 +76,7 @@ fun PermitoScreen() {
         val paydayDay = userSetup?.paydayDay ?: 1
 
         val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
-        val totalSpent = monthExpenses.filter { it.category != "Ingreso" }.sumOf { it.amount }
+        val totalSpent = monthExpenses.filter { !it.isIncome }.sumOf { it.amount }
         val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
 
         val daysToPayday = com.lucas.predictaapp.ui.utils.getDaysToPayday(paydayDay)

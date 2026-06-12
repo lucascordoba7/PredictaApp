@@ -70,17 +70,13 @@ import com.lucas.predictaapp.ui.utils.isCurrentMonth
 @Composable
 fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val context = LocalContext.current
-    val expenses by ExpensesRepository.expenses.collectAsStateWithLifecycle(emptyList())
+    val expenses by ExpensesRepository.expensesWithCategory.collectAsStateWithLifecycle(emptyList())
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val userSetup by UserPreferencesRepository.getUserSetup(context).collectAsStateWithLifecycle(null)
     val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
     val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
 
-    val expenseCategoryNames = remember(allCategories) {
-        allCategories.filter { it.type == CategoryType.EXPENSE }.map { it.name }.toSet()
-            .ifEmpty { null }
-    }
     val emojiFor: (String) -> String = remember(allCategories) {
         val map = allCategories.associate { it.name to it.emoji }
         val fn: (String) -> String = { name -> map[name] ?: ExpenseCategories.emojiFor(name) }
@@ -103,9 +99,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val totalFixedPending = fixedMonthly - totalFixedPaid
 
     val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
-    val totalSpent = monthExpenses.filter {
-        expenseCategoryNames?.contains(it.category) ?: (it.category != "Ingreso")
-    }.sumOf { it.amount }
+    val totalSpent = monthExpenses.filter { !it.isIncome }.sumOf { it.amount }
     val monthSpend = fixedMonthly + totalSpent
 
     val zombies = subscriptions.filter { it.isZombie() }
@@ -160,7 +154,6 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                     income = income,
                     emojiFor = emojiFor,
                     colorFor = colorFor,
-                    expenseCategoryNames = expenseCategoryNames,
                 )
             }
         }

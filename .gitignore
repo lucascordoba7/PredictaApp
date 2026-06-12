@@ -16,3 +16,4 @@ local.properties
 mango-old/*
 .claude/settings.local.json
 opencode.jsonc
+/supabase.txt

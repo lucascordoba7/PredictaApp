@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.lucas.predictaapp.data.model.Category
 import kotlinx.coroutines.flow.Flow
 
@@ -15,11 +16,17 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY sortOrder ASC, type ASC, name ASC")
     suspend fun getAllOnce(): List<Category>
 
+    @Query("SELECT id FROM categories WHERE name = :name LIMIT 1")
+    suspend fun idByName(name: String): Long?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(categories: List<Category>)
 
-    /** Pull desde Supabase: REPLACE para que la fila remota (id real) pise la local. */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Pull desde Supabase: @Upsert (UPDATE por PK, sin DELETE) para no disparar el
+     * ON DELETE del FK de expenses. REPLACE haría delete+insert y rompería la relación.
+     */
+    @Upsert
     suspend fun upsertAll(categories: List<Category>)
 
     /** Devuelve el rowId insertado, o -1 si se ignoró por nombre duplicado. */

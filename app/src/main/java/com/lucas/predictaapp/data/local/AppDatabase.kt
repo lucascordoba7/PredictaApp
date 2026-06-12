@@ -14,7 +14,7 @@ import com.lucas.predictaapp.data.model.Subscription
 
 @Database(
     entities = [Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class],
-    version = 8,
+    version = 10,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -50,6 +50,63 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_6_7 = Migration(6, 7) { db ->
             db.execSQL("ALTER TABLE subscriptions ADD COLUMN lastUsedDate TEXT")
+        }
+
+        private val MIGRATION_9_10 = Migration(9, 10) { db ->
+            // Quitar la columna whenLabel (la UI deriva la fecha relativa de dateMillis).
+            // SQLite < 3.35 no soporta DROP COLUMN, así que recreamos la tabla.
+            db.execSQL(
+                """CREATE TABLE expenses_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    merchant TEXT NOT NULL,
+                    categoryId INTEGER NOT NULL,
+                    amount INTEGER NOT NULL,
+                    source TEXT NOT NULL,
+                    dateMillis INTEGER NOT NULL,
+                    FOREIGN KEY(categoryId) REFERENCES categories(id) ON UPDATE CASCADE ON DELETE RESTRICT
+                )"""
+            )
+            db.execSQL(
+                """INSERT INTO expenses_new (id, merchant, categoryId, amount, source, dateMillis)
+                   SELECT id, merchant, categoryId, amount, source, dateMillis FROM expenses"""
+            )
+            db.execSQL("DROP TABLE expenses")
+            db.execSQL("ALTER TABLE expenses_new RENAME TO expenses")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_categoryId ON expenses (categoryId)")
+        }
+
+        private val MIGRATION_8_9 = Migration(8, 9) { db ->
+            // Pasar expenses.category (String) a categoryId (FK → categories.id).
+            // SQLite no soporta agregar FK ni DROP COLUMN viejo, así que recreamos la tabla.
+            db.execSQL(
+                """CREATE TABLE expenses_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    merchant TEXT NOT NULL,
+                    categoryId INTEGER NOT NULL,
+                    amount INTEGER NOT NULL,
+                    whenLabel TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    dateMillis INTEGER NOT NULL,
+                    FOREIGN KEY(categoryId) REFERENCES categories(id) ON UPDATE CASCADE ON DELETE RESTRICT
+                )"""
+            )
+            // Backfill: resolver el nombre de categoría a id. "Ingreso" (string mágico viejo)
+            // → "Otros ingresos"; cualquier otro sin match → "Otros".
+            db.execSQL(
+                """INSERT INTO expenses_new (id, merchant, categoryId, amount, whenLabel, source, dateMillis)
+                   SELECT e.id, e.merchant,
+                     COALESCE(
+                       (SELECT c.id FROM categories c WHERE c.name = e.category),
+                       (SELECT c.id FROM categories c WHERE c.name = (CASE WHEN e.category = 'Ingreso' THEN 'Otros ingresos' ELSE 'Otros' END)),
+                       (SELECT c.id FROM categories c WHERE c.name = 'Otros'),
+                       (SELECT MIN(id) FROM categories)
+                     ),
+                     e.amount, e.whenLabel, e.source, e.dateMillis
+                   FROM expenses e"""
+            )
+            db.execSQL("DROP TABLE expenses")
+            db.execSQL("ALTER TABLE expenses_new RENAME TO expenses")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_categoryId ON expenses (categoryId)")
         }
 
         private val MIGRATION_7_8 = Migration(7, 8) { db ->
@@ -118,7 +175,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                        MIGRATION_9_10,
                     )
                     // El seed de categorías ya no vive acá: lo centraliza
                     // CategoryRepository.bootstrap() tras el pull de Supabase, así evitamos

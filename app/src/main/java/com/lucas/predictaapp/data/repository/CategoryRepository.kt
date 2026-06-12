@@ -72,7 +72,20 @@ object CategoryRepository {
         } catch (e: Exception) { SyncErrors.report("categories.reorder", e) }
     }
 
+    /**
+     * Resuelve un nombre de categoría a su id. Si no existe, cae en "Otros" (gasto) u
+     * "Otros ingresos" (income). Lo usa el alta desde IA/texto. Asume categorías sembradas.
+     */
+    suspend fun resolveId(name: String, income: Boolean): Long {
+        dao.idByName(name.trim())?.let { return it }
+        val fallback = if (income) "Otros ingresos" else "Otros"
+        return dao.idByName(fallback) ?: dao.idByName("Otros") ?: 0L
+    }
+
     suspend fun delete(id: Long) {
+        // FK RESTRICT: antes de borrar la categoría, mover sus gastos a "Otros".
+        val otros = dao.idByName("Otros")
+        if (otros != null && otros != id) ExpensesRepository.reassignCategory(id, otros)
         dao.delete(id)
         try {
             SupabaseProvider.client?.from("categories")?.delete { filter { eq("id", id) } }

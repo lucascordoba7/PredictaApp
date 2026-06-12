@@ -3,6 +3,8 @@ package com.lucas.predictaapp.data.repository
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.ExpenseDao
 import com.lucas.predictaapp.data.model.Expense
+import com.lucas.predictaapp.data.model.ExpenseSource
+import com.lucas.predictaapp.data.model.ExpenseWithCategory
 import com.lucas.predictaapp.data.remote.SupabaseProvider
 import com.lucas.predictaapp.data.remote.SyncErrors
 import io.github.jan.supabase.postgrest.from
@@ -16,6 +18,9 @@ object ExpensesRepository {
     }
 
     val expenses: Flow<List<Expense>> get() = dao.getAll()
+
+    /** Lectura para UI: cada gasto con su categoría resuelta (nombre/emoji/color/tipo). */
+    val expensesWithCategory: Flow<List<ExpenseWithCategory>> get() = dao.getAllWithCategory()
 
     /** Baja los gastos de Supabase a Room. Se llama al arrancar para rehidratar tras reinstalar. */
     suspend fun pullFromRemote() {
@@ -33,6 +38,31 @@ object ExpensesRepository {
         try {
             SupabaseProvider.client?.from("expenses")?.upsert(synced)
         } catch (e: Exception) { SyncErrors.report("expenses.upsert", e) }
+    }
+
+    /**
+     * Alta desde texto/IA: recibe el NOMBRE de categoría y lo resuelve a categoryId
+     * (cae en "Otros"/"Otros ingresos" si no existe). Mantiene la resolución nombre→id
+     * en un solo lugar.
+     */
+    suspend fun addByName(
+        merchant: String,
+        categoryName: String,
+        amount: Int,
+        dateMillis: Long,
+        income: Boolean = false,
+        source: ExpenseSource = ExpenseSource.MANUAL,
+    ) {
+        val categoryId = CategoryRepository.resolveId(categoryName, income)
+        add(
+            Expense(
+                merchant = merchant,
+                categoryId = categoryId,
+                amount = amount,
+                dateMillis = dateMillis,
+                source = source,
+            ),
+        )
     }
 
     suspend fun addExpense(expense: Expense) = add(expense)
@@ -56,6 +86,15 @@ object ExpensesRepository {
         try {
             SupabaseProvider.client?.from("expenses")?.upsert(expense)
         } catch (e: Exception) { SyncErrors.report("expenses.update", e) }
+    }
+
+    /** Reasigna todos los gastos de una categoría a otra (al borrar la categoría origen). */
+    suspend fun reassignCategory(fromId: Long, toId: Long) {
+        dao.reassignCategory(fromId, toId)
+        try {
+            SupabaseProvider.client?.from("expenses")
+                ?.update({ set("categoryId", toId) }) { filter { eq("categoryId", fromId) } }
+        } catch (e: Exception) { SyncErrors.report("expenses.reassignCategory", e) }
     }
 
     suspend fun delete(id: Long) {

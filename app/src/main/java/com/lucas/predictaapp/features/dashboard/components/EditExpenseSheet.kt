@@ -83,17 +83,17 @@ fun EditExpenseSheet(
 
     var merchant by remember { mutableStateOf(expense.merchant) }
     var amount by remember { mutableStateOf(expense.amount.toString()) }
-    var category by remember { mutableStateOf(expense.category) }
+    var categoryId by remember { mutableStateOf(expense.categoryId) }
     var dateMillis by remember { mutableStateOf(expense.dateMillis) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     val catListState = rememberLazyListState()
     LaunchedEffect(Unit) {
-        categories.indexOfFirst { it.name == category }
+        categories.indexOfFirst { it.id == categoryId }
             .takeIf { it >= 0 }?.let { catListState.scrollToItem(it) }
     }
 
-    val isValid = merchant.isNotBlank() && amount.toIntOrNull()?.let { it > 0 } == true && category.isNotBlank()
+    val isValid = merchant.isNotBlank() && amount.toIntOrNull()?.let { it > 0 } == true && categoryId > 0L
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = PredictaColors.amber,
@@ -163,13 +163,13 @@ fun EditExpenseSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(categories, key = { it.id }) { cat ->
-                    val selected = cat.name == category
+                    val selected = cat.id == categoryId
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
                             .background(if (selected) PredictaColors.amber else PredictaColors.surfaceHigh)
-                            .clickable { category = cat.name }
+                            .clickable { categoryId = cat.id }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Text(text = cat.emoji, fontSize = 13.sp)
@@ -225,9 +225,8 @@ fun EditExpenseSheet(
                             expense.copy(
                                 merchant = merchant.trim(),
                                 amount = amount.toInt(),
-                                category = category,
+                                categoryId = categoryId,
                                 dateMillis = dateMillis,
-                                whenLabel = relativeDateLabel(dateMillis),
                             ),
                         )
                     }
