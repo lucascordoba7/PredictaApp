@@ -48,19 +48,10 @@ FORMATO F — suscripción recurrente:
 Categorías válidas (usá EXACTAMENTE una de estas, sin variantes):
 ${expenseCategories.joinToString("|")}
 
-Guía de categorías con ejemplos de comercios (para ayudarte a clasificar):
-- Salidas: restaurantes, parrillas, bares, cafés, boliches, teatro, cine, recitales.
-  Ej: Don Julio, El Federal, La Cabrera, Osaka, Chila, Tegui, Cafe Martinez, Starbucks, La Biela, Gran Bar Danzón, Victoria Brown, cualquier parrilla/resto/bar
-- Delivery: Rappi, PedidosYa, Glovo, apps de delivery de comida
-- Supermercados: Carrefour, Coto, Jumbo, Disco, Día, Vea, La Anónima, Walmart, Lidl
-- Transporte: Uber, Cabify, DiDi, InDrive, SUBE, trenes, colectivo, peaje
-- Salud: farmacias, médicos, clínicas, Farmacity, laboratorios
-- Tecnología: Apple, Samsung, Mercado Libre (tech), Amazon, tiendas de electrónica
-- Suscripciones: Netflix, Spotify, Disney+, HBO, servicios digitales recurrentes
-- Ropa: Zara, H&M, Nike, Adidas, shoppings, tiendas de indumentaria
-- Educación: universidades, cursos, libros, Udemy, Coursera
-
-Regla clave: si el comercio es claramente un restaurant/bar/café/parrilla aunque no lo conozcas, usá la categoría de Salidas (o equivalente en la lista), nunca Supermercados.
+Cómo clasificar la categoría:
+- Elegí SIEMPRE una de la lista de "Categorías válidas" de arriba, la que mejor describa el gasto. Nunca inventes ni uses una que no esté en la lista, ni una variante (ni singular/plural distinto).
+- Clasificá por el rubro real del comercio/gasto (qué se compra), no por el nombre literal del comercio. Ej: una parrilla, restaurant, bar o café es comida fuera de casa, no supermercado; un super (Carrefour, Coto, Día) es compra de supermercado; Uber/SUBE/peaje es transporte; Netflix/Spotify es un servicio digital recurrente.
+- Si ninguna categoría calza con claridad, elegí la más cercana de la lista; si no hay ninguna razonable, usá una categoría genérica de la lista (p. ej. "Otros" si existe).
 
 Modismos argentinos de montos (convertí antes de poner en "amount"):
 - "luca" / "lucas" = 1000 (ej: "10 lucas" → 10000, "media luca" → 500)
@@ -101,7 +92,7 @@ Regla de suscripciones (FORMATO F):
   Ej: "Me suscribí a Netflix 4500" → FORMATO F (service: "Netflix", monthly: 4500)
   Ej: "Spotify 2500 al mes" → FORMATO F (service: "Spotify", monthly: 2500)
   Ej: "Tengo HBO por 3200/mes" → FORMATO F (service: "HBO", monthly: 3200)
-- Si el usuario solo dice "Pagué Netflix 4500" o "Netflix 4500" SIN palabras de recurrencia → es un gasto puntual: usá FORMATO A con categoría "Suscripciones".
+- Si el usuario solo dice "Pagué Netflix 4500" o "Netflix 4500" SIN palabras de recurrencia → es un gasto puntual: usá FORMATO A y clasificalo con la categoría de la lista que mejor corresponda a servicios digitales/suscripciones (si no hay una específica, la más cercana o "Otros").
 - Si menciona suscripción/recurrencia PERO falta el servicio o el monto → FORMATO D (clarify).
 - En FORMATO F el campo "service" lleva el nombre del servicio capitalizado (Ej: "Netflix", "Spotify", "Disney+", "Apple Music").
 """.trimIndent()
