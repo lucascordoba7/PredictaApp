@@ -88,7 +88,7 @@ fun CategorySpendingCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "GASTOS DEL MES",
+                text = "GASTOS OCASIONALES",
                 style = PredictaTypography.monoCap.copy(
                     color = PredictaColors.cream60,
                     letterSpacing = 0.5.sp,

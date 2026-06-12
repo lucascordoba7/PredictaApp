@@ -172,8 +172,8 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                 )
             }
         }
-        item { StaggerCard(5, visible) { SectionLabel("Tus metas") } }
-        item { StaggerCard(6, visible) { AddGoalCard() } }
+        item { StaggerCard(5, false) { SectionLabel("Tus metas") } }
+        item { StaggerCard(6, false) { AddGoalCard() } }
         if (zombies.isNotEmpty()) {
             item { StaggerCard(7, visible) { SectionLabel("Predicta detectó") } }
             item {

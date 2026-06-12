@@ -28,6 +28,7 @@ import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.utils.fmtArs
+import com.lucas.predictaapp.ui.utils.formatMonthYear
 
 @Composable
 fun FixedExpensesCard(
@@ -74,6 +75,21 @@ fun FixedExpensesCard(
                     ),
                 )
             }
+        }
+        // Month
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = formatMonthYear(),
+                style = PredictaTypography.monoCap.copy(
+                    color = PredictaColors.cream35,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.sp,
+                ),
+            )
         }
 
         if (items.isEmpty()) {
