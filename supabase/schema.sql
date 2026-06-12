@@ -65,6 +65,19 @@ create table if not exists public.profiles (
     "fixedMonthly" integer not null default 0
 );
 
+-- ───────────────────────── categories ───────────────────────
+-- Categorías de gasto/ingreso. El nombre es ÚNICO: no pueden existir dos
+-- categorías con el mismo nombre. type = EXPENSE | INCOME.
+create table if not exists public.categories (
+    id          bigint  primary key,
+    name        text    not null unique,
+    emoji       text    not null,
+    color       text    not null default '#636E72',
+    type        text    not null,                    -- EXPENSE | INCOME
+    "isCustom"  boolean not null default false,
+    "sortOrder" integer not null default 0
+);
+
 -- ───────────────────────── seguridad ────────────────────────
 -- Single-user: RLS queda DESACTIVADO (default al crear por SQL). Con la anon key
 -- la app lee/escribe directo. Tradeoff: la anon key viaja en el APK, así que

@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.Color
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.CategoryType
+import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.isZombie
 import com.lucas.predictaapp.ui.theme.categoryColor
@@ -56,6 +57,7 @@ import com.lucas.predictaapp.features.dashboard.components.AddGoalCard
 import com.lucas.predictaapp.features.dashboard.components.AvailableNowCard
 import com.lucas.predictaapp.features.dashboard.components.CategorySpendingCard
 import com.lucas.predictaapp.features.dashboard.components.DashboardHeader
+import com.lucas.predictaapp.features.dashboard.components.EditExpenseSheet
 import com.lucas.predictaapp.features.dashboard.components.FixedExpensesCard
 import com.lucas.predictaapp.features.dashboard.components.SectionLabel
 import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
@@ -111,6 +113,8 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
+
+    var editingExpense by remember { mutableStateOf<Expense?>(null) }
 
     PredictaPullRefresh(
         modifier = Modifier
@@ -188,6 +192,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                     TransactionsCard(
                         expenses = expenses,
                         onDelete = { expense -> scope.launch { ExpensesRepository.delete(expense.id) } },
+                        onEdit = { editingExpense = it },
                         emojiFor = emojiFor,
                         colorFor = colorFor,
                     )
@@ -195,6 +200,18 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
             }
         }
     }
+    }
+
+    editingExpense?.let { expense ->
+        EditExpenseSheet(
+            expense = expense,
+            categories = allCategories.filter { it.type == CategoryType.EXPENSE },
+            onSave = { updated ->
+                scope.launch { ExpensesRepository.update(updated) }
+                editingExpense = null
+            },
+            onDismiss = { editingExpense = null },
+        )
     }
 }
 

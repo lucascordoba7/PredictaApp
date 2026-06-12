@@ -30,6 +30,9 @@ class PredictaApp : Application() {
             // datos vivos en la nube). Si no hay claves/red, los pull son no-op silenciosos.
             SyncManager.pullAll()
 
+            // Siembra/empuja categorías una vez que el pull rehidrató lo que hubiera en la nube.
+            CategoryRepository.bootstrap()
+
             val setup = UserPreferencesRepository.getUserSetup(this@PredictaApp).first()
             if (setup != null && setup.fixedMonthly > 0) {
                 val existing = FixedExpensesRepository.fixedExpenses.first()

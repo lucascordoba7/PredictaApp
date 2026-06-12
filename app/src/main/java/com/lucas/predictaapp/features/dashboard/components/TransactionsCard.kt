@@ -40,6 +40,7 @@ import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.theme.categoryColor
 import com.lucas.predictaapp.ui.utils.fmtArs
+import com.lucas.predictaapp.ui.utils.relativeDateLabel
 
 private data class CategoryStyle(val emoji: String, val bg: Color, val fg: Color)
 
@@ -53,6 +54,7 @@ private val defaultStyle = CategoryStyle("💸", PredictaColors.surfaceHigh, Pre
 fun TransactionsCard(
     expenses: List<Expense>,
     onDelete: (Expense) -> Unit = {},
+    onEdit: (Expense) -> Unit = {},
     onSeeAll: (() -> Unit)? = null,
     emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
     colorFor: (String) -> Color = { categoryColor(it) },
@@ -111,6 +113,7 @@ fun TransactionsCard(
         expenses.forEachIndexed { i, expense ->
             TransactionRow(
                 expense = expense,
+                onClick = { onEdit(expense) },
                 onLongClick = { pendingDelete = expense },
                 emojiFor = emojiFor,
                 colorFor = colorFor,
@@ -160,6 +163,7 @@ fun TransactionsCard(
 @Composable
 private fun TransactionRow(
     expense: Expense,
+    onClick: () -> Unit,
     onLongClick: () -> Unit,
     emojiFor: (String) -> String = { ExpenseCategories.emojiFor(it) },
     colorFor: (String) -> Color = { categoryColor(it) },
@@ -176,7 +180,7 @@ private fun TransactionRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = {},
+                onClick = onClick,
                 onLongClick = onLongClick,
             )
             .padding(horizontal = 18.dp, vertical = 12.dp),
@@ -222,7 +226,7 @@ private fun TransactionRow(
                 ),
             )
             Text(
-                text = expense.whenLabel,
+                text = relativeDateLabel(expense.dateMillis),
                 style = PredictaTypography.monoCap.copy(
                     fontSize = 10.5.sp,
                     color = PredictaColors.cream35,

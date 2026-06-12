@@ -6,20 +6,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lucas.predictaapp.data.model.Category
 import com.lucas.predictaapp.data.model.Expense
-import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.FixedExpense
 import com.lucas.predictaapp.data.model.Notification
 import com.lucas.predictaapp.data.model.Subscription
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Database(
     entities = [Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -55,6 +50,16 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_6_7 = Migration(6, 7) { db ->
             db.execSQL("ALTER TABLE subscriptions ADD COLUMN lastUsedDate TEXT")
+        }
+
+        private val MIGRATION_7_8 = Migration(7, 8) { db ->
+            // De-duplicar: conservar el id más bajo por nombre y borrar el resto.
+            db.execSQL(
+                "DELETE FROM categories WHERE id NOT IN (SELECT MIN(id) FROM categories GROUP BY name)"
+            )
+            // Constraint de unicidad: no más categorías con el mismo nombre.
+            // El nombre del índice debe coincidir con el que genera Room (index_<tabla>_<col>).
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_categories_name ON categories (name)")
         }
 
         private val MIGRATION_4_5 = Migration(4, 5) { db ->
@@ -111,16 +116,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "predicta.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
-                    .addCallback(object : RoomDatabase.Callback() {
-                        override fun onCreate(db: SupportSQLiteDatabase) {
-                            CoroutineScope(Dispatchers.IO).launch {
-                                INSTANCE?.let { database ->
-                                    database.categoryDao().insertAll(ExpenseCategories.seed)
-                                }
-                            }
-                        }
-                    })
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                    )
+                    // El seed de categorías ya no vive acá: lo centraliza
+                    // CategoryRepository.bootstrap() tras el pull de Supabase, así evitamos
+                    // la doble siembra (onCreate + repo.init) que generaba duplicados.
                     .build()
                     .also { INSTANCE = it }
             }

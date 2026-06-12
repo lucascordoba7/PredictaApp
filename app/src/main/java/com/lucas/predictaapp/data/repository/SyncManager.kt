@@ -10,5 +10,6 @@ object SyncManager {
         SubscriptionsRepository.pullFromRemote()
         FixedExpensesRepository.pullFromRemote()
         NotificationsRepository.pullFromRemote()
+        CategoryRepository.pullFromRemote()
     }
 }

@@ -50,6 +50,14 @@ object ExpensesRepository {
         } catch (e: Exception) { SyncErrors.report("expenses.upsertAll", e) }
     }
 
+    /** Edita un gasto existente (id real conocido). Actualiza Room y la nube. */
+    suspend fun update(expense: Expense) {
+        dao.upsertAll(listOf(expense))
+        try {
+            SupabaseProvider.client?.from("expenses")?.upsert(expense)
+        } catch (e: Exception) { SyncErrors.report("expenses.update", e) }
+    }
+
     suspend fun delete(id: Long) {
         dao.delete(id)
         try {

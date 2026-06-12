@@ -12,11 +12,19 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY sortOrder ASC, type ASC, name ASC")
     fun getAll(): Flow<List<Category>>
 
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, type ASC, name ASC")
+    suspend fun getAllOnce(): List<Category>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(categories: List<Category>)
 
+    /** Pull desde Supabase: REPLACE para que la fila remota (id real) pise la local. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(categories: List<Category>)
+
+    /** Devuelve el rowId insertado, o -1 si se ignoró por nombre duplicado. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(category: Category)
+    suspend fun insert(category: Category): Long
 
     @androidx.room.Update
     suspend fun update(category: Category)
