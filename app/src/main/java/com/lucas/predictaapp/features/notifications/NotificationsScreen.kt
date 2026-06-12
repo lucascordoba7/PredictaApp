@@ -34,6 +34,7 @@ import com.lucas.predictaapp.data.model.DateGroup
 import com.lucas.predictaapp.data.model.Notification
 import com.lucas.predictaapp.data.model.NotificationAction
 import com.lucas.predictaapp.data.repository.NotificationsRepository
+import com.lucas.predictaapp.data.repository.SyncManager
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
@@ -51,6 +52,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(PredictaColors.charcoal),
+        onRefresh = { SyncManager.pullAll() },
     ) {
         LazyColumn(
             modifier = Modifier

@@ -63,6 +63,7 @@ import com.lucas.predictaapp.data.model.daysSinceLastUsed
 import com.lucas.predictaapp.data.model.isZombie
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.ui.components.AnimatedAmount
+import com.lucas.predictaapp.data.repository.SyncManager
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
@@ -97,7 +98,7 @@ fun SubscriptionsScreen(onBack: () -> Unit) {
             .fillMaxSize()
             .background(PredictaColors.charcoal),
     ) {
-        PredictaPullRefresh(modifier = Modifier.fillMaxSize()) {
+        PredictaPullRefresh(modifier = Modifier.fillMaxSize(), onRefresh = { SyncManager.pullAll() }) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 96.dp),

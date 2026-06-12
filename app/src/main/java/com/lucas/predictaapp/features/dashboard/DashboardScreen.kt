@@ -51,6 +51,7 @@ import com.lucas.predictaapp.data.model.computeStatus
 import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+import com.lucas.predictaapp.data.repository.SyncManager
 import com.lucas.predictaapp.features.dashboard.components.AddGoalCard
 import com.lucas.predictaapp.features.dashboard.components.AvailableNowCard
 import com.lucas.predictaapp.features.dashboard.components.CategorySpendingCard
@@ -115,6 +116,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         modifier = Modifier
             .fillMaxSize()
             .background(PredictaColors.charcoal),
+        onRefresh = { SyncManager.pullAll() },
     ) {
     LazyColumn(
         modifier = Modifier

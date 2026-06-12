@@ -9,6 +9,7 @@ import com.lucas.predictaapp.data.repository.ExpensesRepository
 import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+import com.lucas.predictaapp.data.repository.SyncManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -27,10 +28,7 @@ class PredictaApp : Application() {
         CoroutineScope(Dispatchers.IO).launch {
             // Rehidratar desde Supabase antes del seed: cubre reinstalación (Room vacío,
             // datos vivos en la nube). Si no hay claves/red, los pull son no-op silenciosos.
-            ExpensesRepository.pullFromRemote()
-            SubscriptionsRepository.pullFromRemote()
-            FixedExpensesRepository.pullFromRemote()
-            NotificationsRepository.pullFromRemote()
+            SyncManager.pullAll()
 
             val setup = UserPreferencesRepository.getUserSetup(this@PredictaApp).first()
             if (setup != null && setup.fixedMonthly > 0) {

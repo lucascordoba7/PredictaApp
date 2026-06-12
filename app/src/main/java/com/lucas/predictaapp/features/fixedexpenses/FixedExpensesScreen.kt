@@ -63,6 +63,7 @@ import com.lucas.predictaapp.data.model.FixedExpense
 import com.lucas.predictaapp.data.model.FixedExpenseStatus
 import com.lucas.predictaapp.data.model.computeStatus
 import com.lucas.predictaapp.data.repository.FixedExpensesRepository
+import com.lucas.predictaapp.data.repository.SyncManager
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
@@ -108,7 +109,7 @@ fun FixedExpensesScreen(onBack: () -> Unit) {
             .fillMaxSize()
             .background(PredictaColors.charcoal),
     ) {
-        PredictaPullRefresh(modifier = Modifier.fillMaxSize()) {
+        PredictaPullRefresh(modifier = Modifier.fillMaxSize(), onRefresh = { SyncManager.pullAll() }) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
