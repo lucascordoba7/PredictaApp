@@ -31,10 +31,13 @@ create table if not exists public.expenses (
     "categoryId" bigint  not null references public.categories(id) on update cascade on delete restrict,
     amount       integer not null,
     source       text    not null default 'MANUAL',  -- WHATSAPP_IMAGE | WHATSAPP_TEXT | WHATSAPP_AUDIO | MANUAL
-    "dateMillis" bigint  not null
+    "dateMillis" bigint  not null,
+    "subscriptionId" text                            -- nullable: id de la sub que generó el gasto
 );
 
 -- ──────────────────────── subscriptions ─────────────────────
+-- Facturación recurrente: cada mes, el día billingDay, la app genera un Expense real
+-- (categoryId) y marca lastChargedMonthKey para no duplicar. active permite pausar.
 create table if not exists public.subscriptions (
     id            text    primary key,
     service       text    not null,
@@ -42,7 +45,11 @@ create table if not exists public.subscriptions (
     "usagePct"    integer not null default 0,
     monthly       integer not null,
     zombie        boolean not null default false,
-    "lastUsedDate" text                            -- nullable (YYYY-MM-DD)
+    "lastUsedDate" text,                           -- nullable (YYYY-MM-DD)
+    "billingDay"  integer not null default 1,      -- día del mes de cobro (1-31)
+    "lastChargedMonthKey" text not null default '', -- "YYYY-MM" del último cargo generado
+    active        boolean not null default true,
+    "categoryId"  bigint  references public.categories(id)  -- categoría del gasto generado
 );
 
 -- ──────────────────────── fixed_expenses ────────────────────

@@ -14,7 +14,7 @@ import com.lucas.predictaapp.data.model.Subscription
 
 @Database(
     entities = [Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -50,6 +50,26 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_6_7 = Migration(6, 7) { db ->
             db.execSQL("ALTER TABLE subscriptions ADD COLUMN lastUsedDate TEXT")
+        }
+
+        private val MIGRATION_10_11 = Migration(10, 11) { db ->
+            // Suscripciones robustas: facturación recurrente.
+            // expenses.subscriptionId (nullable): traza qué gasto vino de qué suscripción.
+            db.execSQL("ALTER TABLE expenses ADD COLUMN subscriptionId TEXT")
+            // Nuevos campos de billing en subscriptions.
+            db.execSQL("ALTER TABLE subscriptions ADD COLUMN billingDay INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE subscriptions ADD COLUMN lastChargedMonthKey TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE subscriptions ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE subscriptions ADD COLUMN categoryId INTEGER NOT NULL DEFAULT 0")
+            // Backfill: categoría del gasto generado (Suscripciones > Servicios > Otros).
+            db.execSQL(
+                """UPDATE subscriptions SET categoryId = COALESCE(
+                    (SELECT id FROM categories WHERE name = 'Suscripciones'),
+                    (SELECT id FROM categories WHERE name = 'Servicios'),
+                    (SELECT id FROM categories WHERE name = 'Otros'),
+                    (SELECT MIN(id) FROM categories)
+                )"""
+            )
         }
 
         private val MIGRATION_9_10 = Migration(9, 10) { db ->
@@ -176,7 +196,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                        MIGRATION_9_10,
+                        MIGRATION_9_10, MIGRATION_10_11,
                     )
                     // El seed de categorías ya no vive acá: lo centraliza
                     // CategoryRepository.bootstrap() tras el pull de Supabase, así evitamos

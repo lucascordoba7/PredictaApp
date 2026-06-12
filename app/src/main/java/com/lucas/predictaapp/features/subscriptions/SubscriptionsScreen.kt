@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,10 +58,15 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lucas.predictaapp.data.model.Category
+import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Subscription
 import com.lucas.predictaapp.data.model.computedUsagePct
 import com.lucas.predictaapp.data.model.daysSinceLastUsed
+import com.lucas.predictaapp.data.model.effectiveBillingDay
+import com.lucas.predictaapp.data.model.isChargedThisMonth
 import com.lucas.predictaapp.data.model.isZombie
+import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.ui.components.AnimatedAmount
 import com.lucas.predictaapp.data.repository.SyncManager
@@ -82,6 +88,8 @@ import java.util.UUID
 @Composable
 fun SubscriptionsScreen(onBack: () -> Unit) {
     val subs by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
+    val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
+    val expenseCategories = remember(allCategories) { allCategories.filter { it.type == CategoryType.EXPENSE } }
     val today = remember { LocalDate.now() }
     val zombies = subs.filter { it.isZombie(today) }
     val active = subs.filter { !it.isZombie(today) }
@@ -185,6 +193,7 @@ fun SubscriptionsScreen(onBack: () -> Unit) {
         ) {
             SubscriptionForm(
                 initial = editingItem,
+                categories = expenseCategories,
                 onSave = { sub ->
                     scope.launch {
                         SubscriptionsRepository.upsert(sub)
@@ -414,6 +423,13 @@ private fun SubscriptionCard(
                     style = PredictaTypography.small,
                     color = PredictaColors.cream60,
                 )
+                val charged = sub.isChargedThisMonth()
+                Text(
+                    text = "Cobra el día ${sub.effectiveBillingDay()} · " +
+                        if (charged) "cobrada este mes" else "pendiente este mes",
+                    style = PredictaTypography.caption,
+                    color = if (charged) PredictaColors.green else PredictaColors.cream35,
+                )
             }
 
             IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
@@ -486,11 +502,18 @@ private fun SubscriptionCard(
 @Composable
 private fun SubscriptionForm(
     initial: Subscription?,
+    categories: List<Category>,
     onSave: (Subscription) -> Unit,
     onCancel: () -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.service ?: "") }
     var amount by remember { mutableStateOf(initial?.monthly?.toString() ?: "") }
+    var billingDay by remember { mutableStateOf((initial?.billingDay ?: 1).toString()) }
+    val defaultCategoryId = remember(categories) {
+        val byName = categories.associateBy { it.name }
+        (byName["Suscripciones"] ?: byName["Servicios"] ?: byName["Otros"] ?: categories.firstOrNull())?.id ?: 0L
+    }
+    var categoryId by remember { mutableStateOf(initial?.categoryId?.takeIf { it > 0 } ?: defaultCategoryId) }
     var selectedDate by remember {
         mutableStateOf(
             initial?.lastUsedDate
@@ -500,8 +523,10 @@ private fun SubscriptionForm(
     }
     var showDatePicker by remember { mutableStateOf(false) }
 
+    val billingDayValid = billingDay.toIntOrNull()?.let { it in 1..31 } == true
     val isValid = name.isNotBlank() &&
-        amount.toIntOrNull()?.let { it > 0 } == true
+        amount.toIntOrNull()?.let { it > 0 } == true &&
+        billingDayValid && categoryId > 0L
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = PredictaColors.amber,
@@ -558,6 +583,50 @@ private fun SubscriptionForm(
             singleLine = true,
         )
 
+        OutlinedTextField(
+            value = billingDay,
+            onValueChange = { billingDay = it.filter { c -> c.isDigit() }.take(2) },
+            label = { Text("Día de cobro (1-31)") },
+            placeholder = { Text("Ej: 5", color = PredictaColors.cream35) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = fieldColors,
+            isError = billingDay.isNotEmpty() && !billingDayValid,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+            ),
+            singleLine = true,
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Categoría del gasto",
+                style = PredictaTypography.caption.copy(color = PredictaColors.cream60),
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories, key = { it.id }) { cat ->
+                    val selected = cat.id == categoryId
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
+                            .background(if (selected) PredictaColors.amber else PredictaColors.surfaceHigh)
+                            .clickable { categoryId = cat.id }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Text(text = cat.emoji)
+                        Spacer(Modifier.size(6.dp))
+                        Text(
+                            text = cat.name,
+                            style = PredictaTypography.small.copy(
+                                color = if (selected) PredictaColors.charcoal else PredictaColors.cream60,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Última vez que la usaste",
@@ -610,6 +679,11 @@ private fun SubscriptionForm(
                             initial = name.trim().take(1).uppercase(),
                             monthly = amount.toInt(),
                             lastUsedDate = selectedDate.toString(),
+                            billingDay = billingDay.toInt(),
+                            categoryId = categoryId,
+                            // Preservar estado de facturación al editar.
+                            lastChargedMonthKey = initial?.lastChargedMonthKey ?: "",
+                            active = initial?.active ?: true,
                         ),
                     )
                 }

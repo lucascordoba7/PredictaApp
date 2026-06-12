@@ -83,9 +83,12 @@ object CategoryRepository {
     }
 
     suspend fun delete(id: Long) {
-        // FK RESTRICT: antes de borrar la categoría, mover sus gastos a "Otros".
+        // FK RESTRICT: antes de borrar la categoría, mover sus gastos (y suscripciones) a "Otros".
         val otros = dao.idByName("Otros")
-        if (otros != null && otros != id) ExpensesRepository.reassignCategory(id, otros)
+        if (otros != null && otros != id) {
+            ExpensesRepository.reassignCategory(id, otros)
+            SubscriptionsRepository.reassignCategory(id, otros)
+        }
         dao.delete(id)
         try {
             SupabaseProvider.client?.from("categories")?.delete { filter { eq("id", id) } }

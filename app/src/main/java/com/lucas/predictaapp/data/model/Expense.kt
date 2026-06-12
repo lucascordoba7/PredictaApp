@@ -41,6 +41,9 @@ data class Expense(
     val source: ExpenseSource = ExpenseSource.MANUAL,
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val dateMillis: Long = System.currentTimeMillis(),
+    // Si el gasto fue generado por una suscripción recurrente, su id (para trazabilidad).
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val subscriptionId: String? = null,
 )
 
 /**
@@ -59,6 +62,7 @@ data class ExpenseWithCategory(
     val dateMillis: Long get() = expense.dateMillis
     val category: String get() = categoryEntity?.name ?: "Otros"
     val isIncome: Boolean get() = categoryEntity?.type == CategoryType.INCOME
+    val isSubscription: Boolean get() = expense.subscriptionId != null
     val emoji: String get() = categoryEntity?.emoji ?: "💸"
     val color: String get() = categoryEntity?.color ?: "#636E72"
 }

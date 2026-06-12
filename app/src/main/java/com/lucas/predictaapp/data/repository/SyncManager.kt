@@ -12,5 +12,7 @@ object SyncManager {
         SubscriptionsRepository.pullFromRemote()
         FixedExpensesRepository.pullFromRemote()
         NotificationsRepository.pullFromRemote()
+        // Con las suscripciones ya sincronizadas, generar los cargos del mes que correspondan.
+        SubscriptionsRepository.generateDueCharges()
     }
 }

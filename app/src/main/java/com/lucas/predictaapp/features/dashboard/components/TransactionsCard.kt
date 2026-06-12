@@ -208,7 +208,7 @@ private fun TransactionRow(
                 maxLines = 1,
             )
             Text(
-                text = item.category,
+                text = if (item.isSubscription) "🔁 ${item.category}" else item.category,
                 style = PredictaTypography.monoCap.copy(
                     fontSize = 11.sp,
                     color = PredictaColors.cream60,

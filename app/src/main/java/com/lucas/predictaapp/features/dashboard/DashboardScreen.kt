@@ -43,7 +43,6 @@ import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
-import com.lucas.predictaapp.data.model.isZombie
 import com.lucas.predictaapp.ui.theme.categoryColor
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
@@ -61,7 +60,7 @@ import com.lucas.predictaapp.features.dashboard.components.EditExpenseSheet
 import com.lucas.predictaapp.features.dashboard.components.FixedExpensesCard
 import com.lucas.predictaapp.features.dashboard.components.SectionLabel
 import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
-import com.lucas.predictaapp.features.dashboard.components.ZombiesCard
+import com.lucas.predictaapp.features.dashboard.components.SubscriptionsCard
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -101,8 +100,6 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
     val totalSpent = monthExpenses.filter { !it.isIncome }.sumOf { it.amount }
     val monthSpend = fixedMonthly + totalSpent
-
-    val zombies = subscriptions.filter { it.isZombie() }
 
     val scope = rememberCoroutineScope()
     var visible by remember { mutableStateOf(false) }
@@ -167,13 +164,12 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         }
         item { StaggerCard(5, false) { SectionLabel("Tus metas") } }
         item { StaggerCard(6, false) { AddGoalCard() } }
-        if (zombies.isNotEmpty()) {
-            item { StaggerCard(7, visible) { SectionLabel("Predicta detectó") } }
+        if (subscriptions.isNotEmpty()) {
             item {
                 StaggerCard(8, visible) {
-                    ZombiesCard(
-                        zombies = zombies,
-                        onCancel = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Subscriptions.route) },
+                    SubscriptionsCard(
+                        subscriptions = subscriptions,
+                        onManageClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Subscriptions.route) },
                     )
                 }
             }
