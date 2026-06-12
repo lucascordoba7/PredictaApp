@@ -17,6 +17,14 @@ object NotificationsRepository {
 
     val notifications: Flow<List<Notification>> get() = dao.getAll()
 
+    /** Inserta una notificación en el feed in-app (y la sube). La usa el motor de notificaciones. */
+    suspend fun add(notification: Notification) {
+        dao.upsertAll(listOf(notification))
+        try {
+            SupabaseProvider.client?.from("notifications")?.upsert(notification)
+        } catch (e: Exception) { SyncErrors.report("notifications.add", e) }
+    }
+
     /** Baja las notificaciones de Supabase a Room. Se llama al arrancar para rehidratar tras reinstalar. */
     suspend fun pullFromRemote() {
         try {

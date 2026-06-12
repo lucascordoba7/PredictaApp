@@ -10,6 +10,8 @@ import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.data.repository.SyncManager
+import com.lucas.predictaapp.notifications.NotificationChannels
+import com.lucas.predictaapp.notifications.NotificationScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -24,6 +26,10 @@ class PredictaApp : Application() {
         NotificationsRepository.init(db)
         CategoryRepository.init(db)
         FixedExpensesRepository.init(db)
+
+        // Notificaciones: crear canales y programar las corridas diarias (mañana/noche).
+        NotificationChannels.ensureChannels(this)
+        NotificationScheduler.schedule(this)
 
         CoroutineScope(Dispatchers.IO).launch {
             // Rehidratar desde Supabase antes del seed: cubre reinstalación (Room vacío,

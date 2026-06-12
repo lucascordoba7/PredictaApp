@@ -116,6 +116,8 @@ dependencies {
     implementation(libs.supabase.postgrest)
     implementation(libs.ktor.android)
 
+    implementation(libs.androidx.work.runtime)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

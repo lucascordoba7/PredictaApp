@@ -38,6 +38,9 @@ import com.lucas.predictaapp.ui.navigation.bottomNavScreens
 import com.lucas.predictaapp.ui.navigation.rememberCurrentRoute
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTheme
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -62,11 +65,18 @@ private sealed class AppState {
     object Main : AppState()
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PredictaRoot() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var appState by remember { mutableStateOf<AppState>(AppState.Loading) }
+
+    // Permiso de notificaciones (Android 13+). En versiones previas ya viene concedido.
+    val notifPermission = rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS)
+    LaunchedEffect(Unit) {
+        if (!notifPermission.status.isGranted) notifPermission.launchPermissionRequest()
+    }
 
     LaunchedEffect(Unit) {
         // Rehidratar perfil desde Supabase: si existe en la nube, saltea el onboarding.
