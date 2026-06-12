@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.data.model.Subscription
+import com.lucas.predictaapp.data.model.daysSinceLastUsed
 import com.lucas.predictaapp.ui.theme.IBMPlexMono
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -85,8 +86,9 @@ fun ZombiesCard(
                             style = PredictaTypography.small.copy(color = PredictaColors.cream),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
+                        val days = z.daysSinceLastUsed()
                         Text(
-                            text = "hace 60d",
+                            text = if (days != null) "hace ${days}d" else "—",
                             style = PredictaTypography.caption.copy(color = PredictaColors.cream35),
                         )
                     }

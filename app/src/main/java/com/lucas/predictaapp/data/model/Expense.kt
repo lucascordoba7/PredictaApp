@@ -58,6 +58,12 @@ sealed class ExpenseExtraction {
     ) : ExpenseExtraction()
 
     @Serializable
+    data class Subscription(
+        val service: String,
+        val monthly: Int,
+    ) : ExpenseExtraction()
+
+    @Serializable
     data class Clarify(
         val reason: String,
         val question: String,

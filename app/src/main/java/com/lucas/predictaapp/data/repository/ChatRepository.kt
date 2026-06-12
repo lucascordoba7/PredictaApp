@@ -42,6 +42,9 @@ FORMATO D — necesita aclaración:
 FORMATO E — no financiero:
 {"kind":"unknown","reply":"respuesta amigable en 1 oración, rioplatense"}
 
+FORMATO F — suscripción recurrente:
+{"kind":"subscription","service":"nombre del servicio","monthly":number}
+
 Categorías válidas (usá EXACTAMENTE una de estas, sin variantes):
 ${expenseCategories.joinToString("|")}
 
@@ -92,6 +95,15 @@ Reglas:
 - 1 solo JSON, sin texto extra
 - La categoría debe ser exactamente una de la lista
 - Si en mensajes anteriores ya se aclaró el comercio o el monto, usá esa info para completar el gasto sin volver a preguntar
+
+Regla de suscripciones (FORMATO F):
+- Usá FORMATO F SOLO si el usuario menciona explícitamente que es recurrente, con frases como: "/mes", "al mes", "mensual", "suscripción", "me suscribí a", "me suscribo a", "tengo X por Y al mes", "abono", "abonar a", "pagar todos los meses".
+  Ej: "Me suscribí a Netflix 4500" → FORMATO F (service: "Netflix", monthly: 4500)
+  Ej: "Spotify 2500 al mes" → FORMATO F (service: "Spotify", monthly: 2500)
+  Ej: "Tengo HBO por 3200/mes" → FORMATO F (service: "HBO", monthly: 3200)
+- Si el usuario solo dice "Pagué Netflix 4500" o "Netflix 4500" SIN palabras de recurrencia → es un gasto puntual: usá FORMATO A con categoría "Suscripciones".
+- Si menciona suscripción/recurrencia PERO falta el servicio o el monto → FORMATO D (clarify).
+- En FORMATO F el campo "service" lleva el nombre del servicio capitalizado (Ej: "Netflix", "Spotify", "Disney+", "Apple Music").
 """.trimIndent()
 
 object ChatRepository {
@@ -177,6 +189,19 @@ object ChatRepository {
                 val items = obj["items"]?.jsonArray?.map { parseExpenseItem(it.jsonObject) } ?: emptyList()
                 if (items.isEmpty()) ExpenseExtraction.Unknown to "No entendí los gastos. ¿Podés reescribirlos?"
                 else ExpenseExtraction.MultiExpense(items) to null
+            }
+            "subscription" -> {
+                val service = obj["service"]?.jsonPrimitive?.contentOrNull ?: "Suscripción"
+                val monthly = obj["monthly"]?.jsonPrimitive?.intOrNull ?: 0
+                if (monthly <= 0) {
+                    ExpenseExtraction.Clarify(
+                        reason = "Falta monto mensual",
+                        question = "¿Cuánto pagás al mes por $service?",
+                        suggestions = emptyList(),
+                    ) to null
+                } else {
+                    ExpenseExtraction.Subscription(service = service, monthly = monthly) to null
+                }
             }
             "clarify" -> {
                 val reason = obj["reason"]?.jsonPrimitive?.contentOrNull ?: ""

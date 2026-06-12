@@ -67,11 +67,15 @@ import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.ExpenseExtraction
 import com.lucas.predictaapp.data.model.ExpenseSuggestion
+import com.lucas.predictaapp.data.model.Subscription
 import com.lucas.predictaapp.data.remote.ChatMessage
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ChatRepository
 import com.lucas.predictaapp.features.onboarding.PredictaLogoDice
 import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+import java.time.LocalDate
+import java.util.UUID
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -159,6 +163,10 @@ fun ChatScreen() {
                     text = "Encontré ${extraction.expenses.size} gastos 👇",
                     extraction = extraction,
                 )
+                is ExpenseExtraction.Subscription -> ChatMsg.Bot(
+                    text = "Detecté una suscripción 👇",
+                    extraction = extraction,
+                )
                 is ExpenseExtraction.Clarify -> ChatMsg.Bot(
                     text = extraction.question,
                     extraction = extraction,
@@ -206,6 +214,15 @@ fun ChatScreen() {
                         )
                     )
                 }
+                is ExpenseExtraction.Subscription -> SubscriptionsRepository.upsert(
+                    Subscription(
+                        id = UUID.randomUUID().toString(),
+                        service = extraction.service,
+                        initial = extraction.service.take(1).uppercase(),
+                        monthly = extraction.monthly,
+                        lastUsedDate = LocalDate.now().toString(),
+                    )
+                )
                 else -> Unit
             }
         }
@@ -527,6 +544,16 @@ private fun BotBubble(
                         )
                     }
                 }
+                is ExpenseExtraction.Subscription -> {
+                    if (!msg.dismissed) {
+                        SubscriptionExtractionCard(
+                            extraction = ext,
+                            confirmed = msg.confirmed,
+                            onConfirm = onConfirm,
+                            onDismiss = onDismiss,
+                        )
+                    }
+                }
                 is ExpenseExtraction.Clarify -> {
                     if (ext.suggestions.isNotEmpty()) {
                         FlowRow(
@@ -766,6 +793,114 @@ private fun ExtractionCard(
             ) {
                 Icon(Icons.Filled.Check, null, tint = PredictaColors.green, modifier = Modifier.size(14.dp))
                 Text("Registrado", style = PredictaTypography.small, color = PredictaColors.green)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionExtractionCard(
+    extraction: ExpenseExtraction.Subscription,
+    confirmed: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
+            .background(PredictaColors.surface)
+            .border(
+                1.dp,
+                if (confirmed) PredictaColors.greenSoft else PredictaColors.amberEdge,
+                RoundedCornerShape(PredictaDimensions.Radius.card),
+            )
+            .padding(PredictaDimensions.Spacing.base),
+        verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(PredictaColors.amberSoft),
+                ) {
+                    Text(
+                        text = extraction.service.take(1).uppercase(),
+                        style = PredictaTypography.bodyTight,
+                        color = PredictaColors.amber,
+                    )
+                }
+                Column {
+                    Text(
+                        text = extraction.service,
+                        style = PredictaTypography.bodyTight,
+                        color = PredictaColors.cream,
+                    )
+                    Text(
+                        text = "Suscripción · mensual",
+                        style = PredictaTypography.caption,
+                        color = PredictaColors.cream35,
+                    )
+                }
+            }
+            Text(
+                text = "\$${extraction.monthly.fmtArs()}/mes",
+                style = PredictaTypography.bodyTight,
+                color = PredictaColors.amber,
+            )
+        }
+
+        if (!confirmed) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(PredictaDimensions.Radius.sm))
+                        .background(PredictaColors.surfaceHigh)
+                        .clickable(onClick = onDismiss)
+                        .padding(vertical = PredictaDimensions.Spacing.sm),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Close, null, tint = PredictaColors.cream60, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Ignorar", style = PredictaTypography.small, color = PredictaColors.cream60)
+                }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(PredictaDimensions.Radius.sm))
+                        .background(PredictaColors.amberSoft)
+                        .clickable(onClick = onConfirm)
+                        .padding(vertical = PredictaDimensions.Spacing.sm),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Check, null, tint = PredictaColors.amber, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Agregar suscripción", style = PredictaTypography.small, color = PredictaColors.amber)
+                }
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Check, null, tint = PredictaColors.green, modifier = Modifier.size(14.dp))
+                Text("Suscripción agregada", style = PredictaTypography.small, color = PredictaColors.green)
             }
         }
     }

@@ -14,10 +14,10 @@ interface ExpenseDao {
     fun getAll(): Flow<List<Expense>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(expense: Expense)
+    suspend fun insert(expense: Expense): Long
 
     @Upsert
-    suspend fun upsertAll(expenses: List<Expense>)
+    suspend fun upsertAll(expenses: List<Expense>): List<Long>
 
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun delete(id: Long)

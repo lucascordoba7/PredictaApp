@@ -14,6 +14,9 @@ interface SubscriptionDao {
     @Upsert
     suspend fun upsertAll(subscriptions: List<Subscription>)
 
+    @Upsert
+    suspend fun upsert(subscription: Subscription)
+
     @Query("DELETE FROM subscriptions WHERE id = :id")
     suspend fun delete(id: String)
 }

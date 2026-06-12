@@ -32,7 +32,7 @@ import com.lucas.predictaapp.ui.utils.fmtArs
 
 @Composable
 fun AvailableNowCard(
-    availableNow: Int,
+    monthSpend: Int,
     income: Int = 0,
     totalSpent: Int = 0,
     totalFixedPaid: Int = 0,
@@ -52,7 +52,7 @@ fun AvailableNowCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "HOY TENÉS",
+                text = "GASTOS DEL MES",
                 style = PredictaTypography.monoCap.copy(fontSize = 9.sp, letterSpacing = 1.sp),
                 color = PredictaColors.cream35,
             )
@@ -70,7 +70,7 @@ fun AvailableNowCard(
         }
 
         AnimatedAmount(
-            value = availableNow,
+            value = monthSpend,
             style = PredictaTypography.bodyTight.copy(
                 fontFamily = IBMPlexMono,
                 fontSize = 28.sp,
@@ -132,7 +132,7 @@ fun AvailableNowCard(
                         modifier = Modifier.weight(fixedFrac),
                     )
                     Text(
-                        text = "GASTOS DEL MES",
+                        text = "OCASIONALES",
                         style = PredictaTypography.monoCap.copy(
                             fontSize = 8.sp,
                             letterSpacing = 0.8.sp,

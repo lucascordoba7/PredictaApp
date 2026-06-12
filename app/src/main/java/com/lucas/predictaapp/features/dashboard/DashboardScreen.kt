@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.ExpenseCategories
+import com.lucas.predictaapp.data.model.isZombie
 import com.lucas.predictaapp.ui.theme.categoryColor
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
@@ -102,9 +103,9 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val totalSpent = monthExpenses.filter {
         expenseCategoryNames?.contains(it.category) ?: (it.category != "Ingreso")
     }.sumOf { it.amount }
-    val availableNow = (income - fixedMonthly - totalSpent).coerceAtLeast(0)
+    val monthSpend = fixedMonthly + totalSpent
 
-    val zombies = subscriptions.filter { it.zombie }
+    val zombies = subscriptions.filter { it.isZombie() }
 
     val scope = rememberCoroutineScope()
     var visible by remember { mutableStateOf(false) }
@@ -138,7 +139,7 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         item {
             StaggerCard(2, visible) {
                 AvailableNowCard(
-                    availableNow = availableNow,
+                    monthSpend = monthSpend,
                     income = income,
                     totalSpent = totalSpent,
                     totalFixedPaid = totalFixedPaid,
@@ -171,7 +172,10 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
             item { StaggerCard(7, visible) { SectionLabel("Predicta detectó") } }
             item {
                 StaggerCard(8, visible) {
-                    ZombiesCard(zombies = zombies, onCancel = {})
+                    ZombiesCard(
+                        zombies = zombies,
+                        onCancel = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Subscriptions.route) },
+                    )
                 }
             }
         }

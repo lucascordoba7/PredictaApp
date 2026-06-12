@@ -12,7 +12,10 @@ interface FixedExpenseDao {
     fun getAll(): Flow<List<FixedExpense>>
 
     @Upsert
-    suspend fun upsert(item: FixedExpense)
+    suspend fun upsert(item: FixedExpense): Long
+
+    @Upsert
+    suspend fun upsertAll(items: List<FixedExpense>)
 
     @Query("UPDATE fixed_expenses SET active = 0 WHERE id = :id")
     suspend fun softDelete(id: Long)

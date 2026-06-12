@@ -1,6 +1,7 @@
 package com.lucas.predictaapp
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
+import com.lucas.predictaapp.data.remote.SyncErrors
 import com.lucas.predictaapp.features.onboarding.OnboardingScreen
 import com.lucas.predictaapp.features.quickactions.QuickActionsSheet
 import com.lucas.predictaapp.ui.navigation.BottomNavigationBar
@@ -67,8 +69,21 @@ fun PredictaRoot() {
     var appState by remember { mutableStateOf<AppState>(AppState.Loading) }
 
     LaunchedEffect(Unit) {
-        val done = UserPreferencesRepository.isOnboardingDone(context).first()
-        appState = if (done) AppState.Main else AppState.Onboarding
+        // Rehidratar perfil desde Supabase: si existe en la nube, saltea el onboarding.
+        UserPreferencesRepository.pullProfile(context)
+        // Por ahora: usuario fijo. Si no hay perfil (local ni remoto), sembramos el default
+        // en vez de mostrar el onboarding. El flujo de onboarding sigue existiendo para el futuro.
+        if (!UserPreferencesRepository.isOnboardingDone(context).first()) {
+            UserPreferencesRepository.completeOnboarding(context, UserPreferencesRepository.DEFAULT_SETUP)
+        }
+        appState = AppState.Main
+    }
+
+    // Errores de sync a Supabase → Toast en pantalla (además del log en Logcat).
+    LaunchedEffect(Unit) {
+        SyncErrors.events.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
     }
 
     fun signOut() {

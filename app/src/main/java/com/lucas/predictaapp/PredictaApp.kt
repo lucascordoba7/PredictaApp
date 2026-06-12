@@ -25,6 +25,13 @@ class PredictaApp : Application() {
         FixedExpensesRepository.init(db)
 
         CoroutineScope(Dispatchers.IO).launch {
+            // Rehidratar desde Supabase antes del seed: cubre reinstalación (Room vacío,
+            // datos vivos en la nube). Si no hay claves/red, los pull son no-op silenciosos.
+            ExpensesRepository.pullFromRemote()
+            SubscriptionsRepository.pullFromRemote()
+            FixedExpensesRepository.pullFromRemote()
+            NotificationsRepository.pullFromRemote()
+
             val setup = UserPreferencesRepository.getUserSetup(this@PredictaApp).first()
             if (setup != null && setup.fixedMonthly > 0) {
                 val existing = FixedExpensesRepository.fixedExpenses.first()

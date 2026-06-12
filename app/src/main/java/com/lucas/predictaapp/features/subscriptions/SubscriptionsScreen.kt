@@ -6,91 +6,228 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.predictaapp.data.model.Subscription
+import com.lucas.predictaapp.data.model.computedUsagePct
+import com.lucas.predictaapp.data.model.daysSinceLastUsed
+import com.lucas.predictaapp.data.model.isZombie
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
 import com.lucas.predictaapp.ui.components.AnimatedAmount
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
+import com.lucas.predictaapp.ui.utils.ThousandsVisualTransformation
 import com.lucas.predictaapp.ui.utils.fmtArs
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionsScreen(onBack: () -> Unit) {
     val subs by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
-    val zombies = subs.filter { it.zombie }
-    val active = subs.filter { !it.zombie }
+    val today = remember { LocalDate.now() }
+    val zombies = subs.filter { it.isZombie(today) }
+    val active = subs.filter { !it.isZombie(today) }
     val totalMonthly = subs.sumOf { it.monthly }
     val scope = rememberCoroutineScope()
 
-    fun cancel(sub: Subscription) = scope.launch { SubscriptionsRepository.cancel(sub.id) }
+    var showSheet by remember { mutableStateOf(false) }
+    var editingItem by remember { mutableStateOf<Subscription?>(null) }
+    var deletingItem by remember { mutableStateOf<Subscription?>(null) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    PredictaPullRefresh(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(PredictaColors.charcoal),
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(PredictaColors.charcoal),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                bottom = PredictaDimensions.Spacing.xxl,
-            ),
-        ) {
-            item {
-                TopBar(totalMonthly = totalMonthly, onBack = onBack)
-            }
+        PredictaPullRefresh(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 96.dp),
+            ) {
+                item {
+                    TopBar(totalMonthly = totalMonthly, onBack = onBack)
+                }
 
-            if (zombies.isNotEmpty()) {
-                item { SectionHeader("🧟 Zombies — no las usás") }
-                items(zombies, key = { it.id }) { sub ->
-                    SubscriptionCard(
-                        sub = sub,
-                        onCancel = { cancel(sub); Unit },
-                        modifier = Modifier.animateItem(),
-                    )
+                if (subs.isEmpty()) {
+                    item { EmptyState() }
+                }
+
+                if (zombies.isNotEmpty()) {
+                    item { SectionHeader("🧟 Zombies — no las usás") }
+                    items(zombies, key = { it.id }) { sub ->
+                        SubscriptionCard(
+                            sub = sub,
+                            today = today,
+                            onEdit = { editingItem = sub; showSheet = true },
+                            onDelete = { deletingItem = sub },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+
+                if (active.isNotEmpty()) {
+                    item { SectionHeader("✅ Activas") }
+                    items(active, key = { it.id }) { sub ->
+                        SubscriptionCard(
+                            sub = sub,
+                            today = today,
+                            onEdit = { editingItem = sub; showSheet = true },
+                            onDelete = { deletingItem = sub },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
                 }
             }
+        }
 
-            if (active.isNotEmpty()) {
-                item { SectionHeader("✅ Activas") }
-                items(active, key = { it.id }) { sub ->
-                    SubscriptionCard(
-                        sub = sub,
-                        onCancel = null,
-                        modifier = Modifier.animateItem(),
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(PredictaColors.charcoal)
+                .padding(
+                    horizontal = PredictaDimensions.Spacing.screenPadding,
+                    vertical = PredictaDimensions.Spacing.base,
+                ),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(PredictaColors.amber)
+                    .clickable { editingItem = null; showSheet = true }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = PredictaColors.charcoal,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = "Agregar suscripción",
+                        style = PredictaTypography.bodyTight.copy(color = PredictaColors.charcoal),
                     )
                 }
             }
         }
+    }
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false; editingItem = null },
+            sheetState = sheetState,
+            containerColor = PredictaColors.surface,
+        ) {
+            SubscriptionForm(
+                initial = editingItem,
+                onSave = { sub ->
+                    scope.launch {
+                        SubscriptionsRepository.upsert(sub)
+                        showSheet = false
+                        editingItem = null
+                    }
+                },
+                onCancel = { showSheet = false; editingItem = null },
+            )
+        }
+    }
+
+    deletingItem?.let { item ->
+        AlertDialog(
+            onDismissRequest = { deletingItem = null },
+            containerColor = PredictaColors.surface,
+            title = {
+                Text(
+                    text = "¿Cancelar suscripción?",
+                    style = PredictaTypography.cardTitle,
+                    color = PredictaColors.cream,
+                )
+            },
+            text = {
+                Text(
+                    text = "\"${item.service}\" se eliminará de tus suscripciones.",
+                    style = PredictaTypography.small,
+                    color = PredictaColors.cream60,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { SubscriptionsRepository.cancel(item.id) }
+                    deletingItem = null
+                }) {
+                    Text("Eliminar", color = PredictaColors.coral)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingItem = null }) {
+                    Text("Cancelar", color = PredictaColors.cream60)
+                }
+            },
+        )
     }
 }
 
@@ -104,12 +241,10 @@ private fun TopBar(totalMonthly: Int, onBack: () -> Unit) {
                 vertical = PredictaDimensions.Spacing.base,
             ),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.padding(start = -12.dp),
+                modifier = Modifier.offset(x = (-12).dp),
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = PredictaColors.cream60)
             }
@@ -168,12 +303,47 @@ private fun SectionHeader(label: String) {
 }
 
 @Composable
+private fun EmptyState() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = PredictaDimensions.Spacing.screenPadding,
+                vertical = PredictaDimensions.Spacing.xl,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Sin suscripciones cargadas",
+                style = PredictaTypography.body.copy(color = PredictaColors.cream60),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Tocá + para agregar la primera",
+                style = PredictaTypography.small.copy(color = PredictaColors.cream35),
+            )
+        }
+    }
+}
+
+private fun formatDaysAgo(days: Int): String = when (days) {
+    0 -> "hoy"
+    1 -> "ayer"
+    else -> "hace ${days} días"
+}
+
+@Composable
 private fun SubscriptionCard(
     sub: Subscription,
-    onCancel: (() -> Unit)?,
+    today: LocalDate,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isZombie = sub.zombie
+    val isZombie = sub.isZombie(today)
+    val usagePct = sub.computedUsagePct(today)
+    val days = sub.daysSinceLastUsed(today)
     val accentColor = if (isZombie) PredictaColors.coral else PredictaColors.green
     val accentSoft = if (isZombie) PredictaColors.coralSoft else PredictaColors.greenSoft
 
@@ -191,7 +361,7 @@ private fun SubscriptionCard(
                     1.dp,
                     PredictaColors.coralSoft,
                     RoundedCornerShape(PredictaDimensions.Radius.card),
-                ) else Modifier
+                ) else Modifier,
             )
             .padding(PredictaDimensions.Spacing.base),
         verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
@@ -216,27 +386,49 @@ private fun SubscriptionCard(
             }
 
             Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = sub.service,
+                        style = PredictaTypography.bodyTight,
+                        color = PredictaColors.cream,
+                    )
+                    if (isZombie) {
+                        Spacer(Modifier.size(6.dp))
+                        Text(
+                            text = "Zombie",
+                            style = PredictaTypography.caption,
+                            color = PredictaColors.coral,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
+                                .background(PredictaColors.coralSoft)
+                                .padding(horizontal = PredictaDimensions.Spacing.sm, vertical = 2.dp),
+                        )
+                    }
+                }
                 Text(
-                    text = sub.service,
-                    style = PredictaTypography.bodyTight,
-                    color = PredictaColors.cream,
-                )
-                Text(
-                    text = "\$${sub.monthly.fmtArs()}/mes",
+                    text = buildString {
+                        append("\$${sub.monthly.fmtArs()}/mes")
+                        if (days != null) append(" · ${formatDaysAgo(days)}")
+                    },
                     style = PredictaTypography.small,
                     color = PredictaColors.cream60,
                 )
             }
 
-            if (isZombie) {
-                Text(
-                    text = "Zombie",
-                    style = PredictaTypography.caption,
-                    color = PredictaColors.coral,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(PredictaDimensions.Radius.pill))
-                        .background(PredictaColors.coralSoft)
-                        .padding(horizontal = PredictaDimensions.Spacing.sm, vertical = 2.dp),
+            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Editar",
+                    tint = PredictaColors.cream35,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Eliminar",
+                    tint = PredictaColors.cream35,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
@@ -252,13 +444,13 @@ private fun SubscriptionCard(
                     color = PredictaColors.cream35,
                 )
                 Text(
-                    text = "${sub.usagePct}%",
+                    text = "${usagePct}%",
                     style = PredictaTypography.caption,
                     color = accentColor,
                 )
             }
             LinearProgressIndicator(
-                progress = { sub.usagePct / 100f },
+                progress = { usagePct / 100f },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
@@ -269,13 +461,13 @@ private fun SubscriptionCard(
             )
         }
 
-        if (onCancel != null) {
+        if (isZombie) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(PredictaDimensions.Radius.sm))
                     .background(PredictaColors.coralSoft)
-                    .clickable(onClick = onCancel)
+                    .clickable(onClick = onDelete)
                     .padding(vertical = PredictaDimensions.Spacing.sm),
                 contentAlignment = Alignment.Center,
             ) {
@@ -285,6 +477,195 @@ private fun SubscriptionCard(
                     color = PredictaColors.coral,
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubscriptionForm(
+    initial: Subscription?,
+    onSave: (Subscription) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.service ?: "") }
+    var amount by remember { mutableStateOf(initial?.monthly?.toString() ?: "") }
+    var selectedDate by remember {
+        mutableStateOf(
+            initial?.lastUsedDate
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                ?: LocalDate.now(),
+        )
+    }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val isValid = name.isNotBlank() &&
+        amount.toIntOrNull()?.let { it > 0 } == true
+
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = PredictaColors.amber,
+        unfocusedBorderColor = PredictaColors.lineStrong,
+        focusedLabelColor = PredictaColors.amber,
+        unfocusedLabelColor = PredictaColors.cream35,
+        cursorColor = PredictaColors.amber,
+        focusedTextColor = PredictaColors.cream,
+        unfocusedTextColor = PredictaColors.cream,
+    )
+
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale("es", "AR")) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(PredictaDimensions.Spacing.base)
+            .imePadding(),
+        verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.md),
+    ) {
+        Text(
+            text = if (initial == null) "Nueva suscripción" else "Editar suscripción",
+            style = PredictaTypography.cardTitle,
+            color = PredictaColors.cream,
+        )
+
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Nombre del servicio") },
+            placeholder = { Text("Ej: Netflix, Spotify…", color = PredictaColors.cream35) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = fieldColors,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Next,
+            ),
+            singleLine = true,
+        )
+
+        OutlinedTextField(
+            value = amount,
+            onValueChange = { amount = it.filter { c -> c.isDigit() } },
+            label = { Text("Monto mensual") },
+            placeholder = { Text("4,500", color = PredictaColors.cream35) },
+            prefix = { Text("$", color = PredictaColors.cream60) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = fieldColors,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+            ),
+            visualTransformation = ThousandsVisualTransformation,
+            singleLine = true,
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Última vez que la usaste",
+                style = PredictaTypography.caption.copy(color = PredictaColors.cream60),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
+                    .border(
+                        1.dp,
+                        PredictaColors.lineStrong,
+                        RoundedCornerShape(PredictaDimensions.Radius.card),
+                    )
+                    .clickable { showDatePicker = true }
+                    .padding(
+                        horizontal = PredictaDimensions.Spacing.base,
+                        vertical = PredictaDimensions.Spacing.md,
+                    ),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = selectedDate.format(dateFormatter),
+                    style = PredictaTypography.body.copy(color = PredictaColors.cream),
+                )
+                val days = java.time.temporal.ChronoUnit.DAYS
+                    .between(selectedDate, LocalDate.now())
+                    .toInt()
+                    .coerceAtLeast(0)
+                Text(
+                    text = formatDaysAgo(days),
+                    style = PredictaTypography.caption.copy(color = PredictaColors.cream35),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(PredictaDimensions.Spacing.sm))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
+                .background(if (isValid) PredictaColors.amber else PredictaColors.cream12)
+                .clickable(enabled = isValid) {
+                    onSave(
+                        Subscription(
+                            id = initial?.id ?: UUID.randomUUID().toString(),
+                            service = name.trim(),
+                            initial = name.trim().take(1).uppercase(),
+                            monthly = amount.toInt(),
+                            lastUsedDate = selectedDate.toString(),
+                        ),
+                    )
+                }
+                .padding(vertical = PredictaDimensions.Spacing.base),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Guardar",
+                style = PredictaTypography.bodyTight.copy(
+                    color = if (isValid) PredictaColors.charcoal else PredictaColors.cream35,
+                ),
+            )
+        }
+
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Cancelar",
+                style = PredictaTypography.small,
+                color = PredictaColors.cream60,
+            )
+        }
+
+        Spacer(Modifier.height(PredictaDimensions.Spacing.base))
+    }
+
+    if (showDatePicker) {
+        val zoneId = ZoneId.of("UTC")
+        val initialMillis = selectedDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcTimeMillis <= System.currentTimeMillis()
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneId.of("UTC"))
+                            .toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("OK", color = PredictaColors.amber) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar", color = PredictaColors.cream60)
+                }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = PredictaColors.surface,
+            ),
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
