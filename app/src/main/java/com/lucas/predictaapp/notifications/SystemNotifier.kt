@@ -44,7 +44,7 @@ object SystemNotifier {
             val builder = NotificationCompat.Builder(context, notif.channel)
                 .setSmallIcon(R.drawable.ic_stat_predicta)
                 .setColor(ACCENT)
-                .setContentTitle("${notif.emoji}  ${notif.title}")
+                .setContentTitle(notif.title)
                 .setContentText(notif.body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(notif.body))
                 .setAutoCancel(true)
