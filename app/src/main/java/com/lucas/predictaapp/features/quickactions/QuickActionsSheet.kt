@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddChart
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -62,12 +62,12 @@ private val actions = listOf(
         route = "chat",
     ),
     QuickAction(
-        icon = Icons.Filled.QuestionAnswer,
-        label = "¿Te lo permito?",
-        sublabel = "Consultar una compra",
+        icon = Icons.Filled.ReceiptLong,
+        label = "Transacciones",
+        sublabel = "Ver, buscar y filtrar",
         color = PredictaColors.pending,
         colorSoft = PredictaColors.pendingSoft,
-        route = "permito",
+        route = "transactions",
     ),
     QuickAction(
         icon = Icons.Filled.BarChart,

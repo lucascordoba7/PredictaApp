@@ -37,21 +37,22 @@ Single-module project (`:app`), Kotlin-only, no Java. **No DI framework, no View
 **Entry point:** `MainActivity` → `PredictaApp()` composable (en `PredictaApp.kt`) envuelve un `Scaffold` con `BottomNavigationBar` + `PredictaNavGraph`.
 
 **Navigation:** `ui/navigation/` — `Screen` sealed class define rutas. `bottomNavScreens` decide qué destinos muestran la bottom bar.
-- Root tabs (con bottom bar): `Dashboard`, `Permito`, `Chat`, `Profile`.
+- Root tabs (con bottom bar): `Dashboard`, `Transactions` ("Actividad"), `Chat`, `Profile`.
 - Detail screens (push): `Notifications`, `Subscriptions`, `Categories`, `FixedExpenses`.
 - Transiciones del NavGraph: fade entre tabs raíz, slide horizontal + fade para detail screens (`NavGraph.kt`).
 
-**Feature screens** (todas implementadas, no stubs): `features/{dashboard,permito,chat,profile,onboarding,fixedexpenses,notifications,subscriptions,quickactions}/`. Cada feature agrupa sus composables y, cuando aplica, una subcarpeta `components/` con las cards reutilizables (ver `features/dashboard/components/`).
+**Feature screens** (todas implementadas, no stubs): `features/{dashboard,transactions,chat,profile,onboarding,fixedexpenses,notifications,subscriptions,quickactions}/`. La feature Permito fue eliminada. Cada feature agrupa sus composables y, cuando aplica, una subcarpeta `components/` con las cards reutilizables (ver `features/dashboard/components/`).
 
 **Data layer:**
-- `data/model/` — `@Serializable` data classes: `Expense`, `Subscription`, `Notification`, `FixedExpense`, `Category`, `ExpenseCategory`, `Permito`, `User`. `Fixtures` ya fue removido (PTA-007) — los repos hidratan desde Room directamente con empty states reales.
+- `data/model/` — `@Serializable` data classes: `Expense`, `Subscription`, `Notification`, `FixedExpense`, `Category`, `ExpenseCategory`, `User`. `Fixtures` ya fue removido (PTA-007) — los repos hidratan desde Room directamente con empty states reales.
 - `data/local/` — **Room** (`AppDatabase`) con DAOs: `CategoryDao`, `ExpenseDao`, `FixedExpenseDao`, `NotificationDao`, `SubscriptionDao`. `Converters` para tipos custom. `UserPreferencesRepository` usa **DataStore Preferences** para perfil (nombre/email/ingreso) y flags de onboarding.
-- `data/repository/` — repos por dominio: `CategoryRepository`, `ChatRepository`, `ExpensesRepository`, `FixedExpensesRepository`, `NotificationsRepository`, `PermitoRepository`, `PersonalityRepository`, `SubscriptionsRepository`. Exponen `StateFlow`/`Flow`; suspend functions para mutaciones.
+- `data/repository/` — repos por dominio: `CategoryRepository`, `ChatRepository`, `ExpensesRepository`, `FixedExpensesRepository`, `NotificationsRepository`, `PersonalityRepository`, `SubscriptionsRepository`. Exponen `StateFlow`/`Flow`; suspend functions para mutaciones.
 - `data/remote/` — `ApiProvider` (singleton) construye lazy: `anthropicApi` (Claude), `openAiApi`, `GroqApi`. `SupabaseProvider` para el cliente Supabase (postgrest + Ktor android). Claves vía `BuildConfig`.
 
 **UI shared components:** `ui/components/`
 - `AnimatedAmount` — `AnimatedContent` con slide vertical + fade para montos que cambian.
 - `PredictaPullRefresh` — wrapper `PullToRefreshBox` themed (amber sobre surface). Acepta `onRefresh` opcional; si es null igual da feedback ~700ms.
+- `TransactionRow` + `DeleteExpenseDialog` — fila de transacción y confirmación de borrado compartidas entre el card del dashboard y la pantalla Transacciones.
 
 **Design system** (do not use Material3 theme tokens directly — use these instead):
 - `PredictaColors` — paleta dark (charcoal background, amber accent, cream text, coral/green/pending para estados).

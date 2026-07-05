@@ -19,17 +19,17 @@ import com.lucas.predictaapp.features.chat.ChatScreen
 import com.lucas.predictaapp.features.dashboard.DashboardScreen
 import com.lucas.predictaapp.features.fixedexpenses.FixedExpensesScreen
 import com.lucas.predictaapp.features.notifications.NotificationsScreen
-import com.lucas.predictaapp.features.permito.PermitoScreen
 import com.lucas.predictaapp.features.profile.CategoriesScreen
 import com.lucas.predictaapp.features.profile.ProfileScreen
 import com.lucas.predictaapp.features.subscriptions.SubscriptionsScreen
+import com.lucas.predictaapp.features.transactions.TransactionsScreen
 import androidx.compose.runtime.getValue
 
 private const val TRANSITION_MS = 280
 
 private val rootRoutes = setOf(
     Screen.Dashboard.route,
-    Screen.Permito.route,
+    Screen.Transactions.route,
     Screen.Chat.route,
     Screen.Profile.route,
 )
@@ -76,8 +76,8 @@ fun PredictaNavGraph(
         composable(Screen.Dashboard.route) {
             DashboardScreen(onNavigate = { route -> navController.navigate(route) })
         }
-        composable(Screen.Permito.route) {
-            PermitoScreen()
+        composable(Screen.Transactions.route) {
+            TransactionsScreen()
         }
         composable(Screen.Chat.route) {
             ChatScreen()

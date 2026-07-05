@@ -204,9 +204,11 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
             item {
                 StaggerCard(10, visible) {
                     TransactionsCard(
-                        expenses = monthExpenses,
+                        // El home muestra un vistazo; el historial completo vive en Actividad.
+                        expenses = monthExpenses.sortedByDescending { it.dateMillis }.take(5),
                         onDelete = { expense -> scope.launch { ExpensesRepository.delete(expense.id) } },
                         onEdit = { editingExpense = it },
+                        onSeeAll = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Transactions.route) },
                         emojiFor = emojiFor,
                         colorFor = colorFor,
                     )

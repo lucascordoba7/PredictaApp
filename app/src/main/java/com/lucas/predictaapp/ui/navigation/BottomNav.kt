@@ -22,11 +22,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.outlined.QuestionAnswer
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,11 +75,11 @@ fun BottomNavigationBar(
         )
 
         NavItem(
-            icon = Icons.Outlined.QuestionAnswer,
-            activeIcon = Icons.Default.QuestionAnswer,
-            label = Screen.Permito.title,
-            isSelected = currentRoute == Screen.Permito.route,
-            onClick = { onNavigate(Screen.Permito.route) },
+            icon = Icons.Outlined.ReceiptLong,
+            activeIcon = Icons.Default.ReceiptLong,
+            label = Screen.Transactions.title,
+            isSelected = currentRoute == Screen.Transactions.route,
+            onClick = { onNavigate(Screen.Transactions.route) },
         )
 
         FabButton(onClick = onFabClick)
