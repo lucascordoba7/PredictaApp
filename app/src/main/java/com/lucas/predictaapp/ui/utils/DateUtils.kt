@@ -3,7 +3,9 @@ package com.lucas.predictaapp.ui.utils
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Locale
@@ -52,6 +54,20 @@ fun relativeDateLabel(millis: Long): String {
         daysAgo in 3..6 -> "hace $daysAgo días"
         else -> "el ${date.dayOfMonth}/${date.monthValue}"
     }
+}
+
+/** ¿El millis cae dentro de [month]? (para filtrar gastos del mes navegado). */
+fun isInMonth(millis: Long, month: YearMonth): Boolean {
+    if (millis == 0L) return false
+    val date = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    return YearMonth.from(date) == month
+}
+
+/** "Julio 2026" para el mes dado (locale es-AR, primera letra en mayúscula). */
+fun monthYearLabel(month: YearMonth): String {
+    val name = month.month.getDisplayName(TextStyle.FULL, Locale("es", "AR"))
+        .replaceFirstChar { it.uppercase() }
+    return "$name ${month.year}"
 }
 
 fun isCurrentMonth(millis: Long): Boolean {

@@ -62,9 +62,12 @@ import com.lucas.predictaapp.features.dashboard.components.SectionLabel
 import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
 import com.lucas.predictaapp.features.dashboard.components.SubscriptionsCard
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
+import androidx.compose.ui.text.style.TextAlign
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
-import com.lucas.predictaapp.ui.utils.isCurrentMonth
+import com.lucas.predictaapp.ui.utils.isInMonth
+import com.lucas.predictaapp.ui.utils.monthYearLabel
+import java.time.YearMonth
 
 @Composable
 fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
@@ -92,14 +95,21 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
     val name = userSetup?.name ?: ""
     val income = userSetup?.income ?: 0
     val fixedMonthly = fixedExpenses.sumOf { it.amount }
-    val totalFixedPaid = fixedExpenses.filter {
-        it.computeStatus() == com.lucas.predictaapp.data.model.FixedExpenseStatus.PAGADO
-    }.sumOf { it.amount }
-    val totalFixedPending = fixedMonthly - totalFixedPaid
 
-    val monthExpenses = expenses.filter { isCurrentMonth(it.dateMillis) }
+    // Mes navegado: el dashboard muestra los datos del mes seleccionado (hoy por defecto).
+    var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
+    val viewingCurrent = selectedMonth == YearMonth.now()
+
+    // Los gastos fijos solo tienen estado (pagado/pendiente) del mes en curso; en meses
+    // pasados el dashboard muestra únicamente los movimientos registrados.
+    val totalFixedPaid = if (viewingCurrent) {
+        fixedExpenses.filter { it.computeStatus() == FixedExpenseStatus.PAGADO }.sumOf { it.amount }
+    } else 0
+    val totalFixedPending = if (viewingCurrent) fixedMonthly - totalFixedPaid else 0
+
+    val monthExpenses = expenses.filter { isInMonth(it.dateMillis, selectedMonth) }
     val totalSpent = monthExpenses.filter { !it.isIncome }.sumOf { it.amount }
-    val monthSpend = fixedMonthly + totalSpent
+    val monthSpend = totalSpent + if (viewingCurrent) fixedMonthly else 0
 
     val scope = rememberCoroutineScope()
     var visible by remember { mutableStateOf(false) }
@@ -130,7 +140,15 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
         }
         item {
             StaggerCard(1, visible) {
-                DashboardHeader(name = name)
+                DashboardHeader(
+                    name = name,
+                    month = selectedMonth,
+                    onPrevMonth = { selectedMonth = selectedMonth.minusMonths(1) },
+                    onNextMonth = {
+                        if (selectedMonth < YearMonth.now()) selectedMonth = selectedMonth.plusMonths(1)
+                    },
+                    onResetMonth = { selectedMonth = YearMonth.now() },
+                )
             }
         }
         item {
@@ -154,38 +172,57 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                 )
             }
         }
-        item {
-            StaggerCard(4, visible) {
-                FixedExpensesCard(
-                    items = fixedExpenses,
-                    onManageClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.FixedExpenses.route) },
-                )
-            }
-        }
-        item { StaggerCard(5, false) { SectionLabel("Tus metas") } }
-        item { StaggerCard(6, false) { AddGoalCard() } }
-        if (subscriptions.isNotEmpty()) {
+        // Cards de estado presente (fijos, metas, subs): solo tienen sentido en el mes en curso.
+        if (viewingCurrent) {
             item {
-                StaggerCard(8, visible) {
-                    SubscriptionsCard(
-                        subscriptions = subscriptions,
-                        onManageClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Subscriptions.route) },
+                StaggerCard(4, visible) {
+                    FixedExpensesCard(
+                        items = fixedExpenses,
+                        onManageClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.FixedExpenses.route) },
                     )
                 }
             }
+            item { StaggerCard(5, false) { SectionLabel("Tus metas") } }
+            item { StaggerCard(6, false) { AddGoalCard() } }
+            if (subscriptions.isNotEmpty()) {
+                item {
+                    StaggerCard(8, visible) {
+                        SubscriptionsCard(
+                            subscriptions = subscriptions,
+                            onManageClick = { onNavigate(com.lucas.predictaapp.ui.navigation.Screen.Subscriptions.route) },
+                        )
+                    }
+                }
+            }
         }
-        if (expenses.isNotEmpty()) {
-            item { StaggerCard(9, visible) { SectionLabel("Actividad reciente") } }
+        if (monthExpenses.isNotEmpty()) {
+            item {
+                StaggerCard(9, visible) {
+                    SectionLabel(if (viewingCurrent) "Actividad reciente" else "Movimientos de ${monthYearLabel(selectedMonth).lowercase()}")
+                }
+            }
             item {
                 StaggerCard(10, visible) {
                     TransactionsCard(
-                        expenses = expenses,
+                        expenses = monthExpenses,
                         onDelete = { expense -> scope.launch { ExpensesRepository.delete(expense.id) } },
                         onEdit = { editingExpense = it },
                         emojiFor = emojiFor,
                         colorFor = colorFor,
                     )
                 }
+            }
+        } else if (!viewingCurrent) {
+            item {
+                Text(
+                    text = "Sin movimientos en ${monthYearLabel(selectedMonth).lowercase()}",
+                    style = PredictaTypography.small,
+                    color = PredictaColors.cream35,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }

@@ -16,21 +16,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaTypography
-import com.lucas.predictaapp.ui.utils.formatMonthYear
+import java.time.YearMonth
 
 @Composable
-fun DashboardHeader(name: String) {
+fun DashboardHeader(
+    name: String,
+    month: YearMonth,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onResetMonth: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp, start = 6.dp, end = 6.dp, bottom = 4.dp),
     ) {
-        Text(
-            text = formatMonthYear().lowercase().replaceFirstChar { it.uppercase() },
-            style = PredictaTypography.monoCap.copy(
-                letterSpacing = 1.4.sp,
-                color = PredictaColors.cream35,
-            ),
+        MonthSelector(
+            month = month,
+            onPrev = onPrevMonth,
+            onNext = onNextMonth,
+            onReset = onResetMonth,
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
