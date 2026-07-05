@@ -40,6 +40,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -985,10 +987,22 @@ private fun ChatInputBar(
     onSend: () -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val voice = rememberVoiceInput(onText = onTextChange)
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) PredictaColors.amberEdge else PredictaColors.lineStrong,
+        targetValue = when {
+            voice.listening -> PredictaColors.coral
+            isFocused -> PredictaColors.amberEdge
+            else -> PredictaColors.lineStrong
+        },
         animationSpec = tween(250),
         label = "inputBorder",
+    )
+    // Pulso del botón mientras el micrófono está abierto.
+    val micPulse by rememberInfiniteTransition(label = "micPulse").animateFloat(
+        initialValue = 1f,
+        targetValue = 0.55f,
+        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
+        label = "micPulseAlpha",
     )
     val inputShape = RoundedCornerShape(PredictaDimensions.Radius.lg)
 
@@ -1029,26 +1043,53 @@ private fun ChatInputBar(
                 maxLines = 4,
                 decorationBox = { inner ->
                     if (text.isEmpty()) {
-                        Text("Ej: gasté 8.400 en Uber", style = PredictaTypography.body, color = PredictaColors.cream35)
+                        Text(
+                            text = if (voice.listening) "Escuchando…" else "Ej: gasté 8.400 en Uber",
+                            style = PredictaTypography.body,
+                            color = if (voice.listening) PredictaColors.coral else PredictaColors.cream35,
+                        )
                     }
                     inner()
                 },
             )
 
+            // Un solo botón, estilo WhatsApp: mic con campo vacío, stop mientras
+            // escucha, flecha de enviar cuando hay texto.
+            val showMic = voice.isAvailable && text.isBlank() && !voice.listening
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .background(
-                        if (text.isNotBlank()) PredictaColors.amber else PredictaColors.surface,
+                        when {
+                            voice.listening -> PredictaColors.coral.copy(alpha = micPulse)
+                            text.isNotBlank() -> PredictaColors.amber
+                            else -> PredictaColors.surface
+                        },
                         CircleShape,
                     )
-                    .clickable(enabled = text.isNotBlank(), onClick = onSend),
+                    .clickable(
+                        enabled = voice.listening || text.isNotBlank() || showMic,
+                        onClick = { if (voice.listening || showMic) voice.toggle() else onSend() },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = "Enviar",
-                    tint = if (text.isNotBlank()) PredictaColors.onAmber else PredictaColors.cream35,
+                    imageVector = when {
+                        voice.listening -> Icons.Filled.Stop
+                        showMic -> Icons.Filled.Mic
+                        else -> Icons.Filled.ArrowUpward
+                    },
+                    contentDescription = when {
+                        voice.listening -> "Detener dictado"
+                        showMic -> "Dictar gasto"
+                        else -> "Enviar"
+                    },
+                    tint = when {
+                        voice.listening -> PredictaColors.cream
+                        showMic -> PredictaColors.cream60
+                        text.isNotBlank() -> PredictaColors.onAmber
+                        else -> PredictaColors.cream35
+                    },
                     modifier = Modifier.size(20.dp),
                 )
             }
