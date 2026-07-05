@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -58,6 +59,14 @@ fun Subscription.isZombie(today: LocalDate = LocalDate.now()): Boolean =
 /** Día de cobro recortado al largo del mes (ej: 31 en febrero → 28/29). */
 fun Subscription.effectiveBillingDay(month: YearMonth = YearMonth.now()): Int =
     billingDay.coerceIn(1, month.lengthOfMonth())
+
+/** Rango [inicio, fin) del mes en millis locales. */
+fun YearMonth.rangeMillis(zone: ZoneId = ZoneId.systemDefault()): Pair<Long, Long> =
+    atDay(1).atStartOfDay(zone).toInstant().toEpochMilli() to
+        plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+fun Long.toLocalDate(zone: ZoneId = ZoneId.systemDefault()): LocalDate =
+    Instant.ofEpochMilli(this).atZone(zone).toLocalDate()
 
 /** Millis del día de cobro de [month] (mediodía local, estable para mostrar). */
 fun Subscription.chargeDateMillis(month: YearMonth = YearMonth.now()): Long =

@@ -31,6 +31,13 @@ object ExpensesRepository {
         } catch (e: Exception) { SyncErrors.report("expenses.pull", e) }
     }
 
+    /** Ids de cargos ya generados por la sub en el rango [fromMillis, toMillis). */
+    suspend fun subscriptionChargeIds(subscriptionId: String, fromMillis: Long, toMillis: Long): List<Long> =
+        dao.subscriptionChargeIds(subscriptionId, fromMillis, toMillis)
+
+    /** Todos los gastos generados por suscripciones (para deduplicar por sub+mes). */
+    suspend fun subscriptionChargesOnce(): List<Expense> = dao.subscriptionChargesOnce()
+
     suspend fun add(expense: Expense) {
         // Room asigna el id real al insertar; sincronizamos esa copia (no el id=0 entrante).
         val newId = dao.insert(expense)

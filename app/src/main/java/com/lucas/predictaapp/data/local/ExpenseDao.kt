@@ -35,4 +35,15 @@ interface ExpenseDao {
 
     @Query("SELECT COUNT(*) FROM expenses")
     suspend fun count(): Int
+
+    /** Ids de cargos ya generados por [subscriptionId] en el rango [fromMillis, toMillis). */
+    @Query(
+        "SELECT id FROM expenses WHERE subscriptionId = :subscriptionId " +
+            "AND dateMillis >= :fromMillis AND dateMillis < :toMillis ORDER BY id ASC",
+    )
+    suspend fun subscriptionChargeIds(subscriptionId: String, fromMillis: Long, toMillis: Long): List<Long>
+
+    /** Todos los gastos generados por suscripciones (para deduplicar por sub+mes). */
+    @Query("SELECT * FROM expenses WHERE subscriptionId IS NOT NULL")
+    suspend fun subscriptionChargesOnce(): List<Expense>
 }
