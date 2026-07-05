@@ -5,10 +5,12 @@ import com.lucas.predictaapp.data.local.ExpenseDao
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseSource
 import com.lucas.predictaapp.data.model.ExpenseWithCategory
+import com.lucas.predictaapp.data.model.toLocalDate
 import com.lucas.predictaapp.data.remote.SupabaseProvider
 import com.lucas.predictaapp.data.remote.SyncErrors
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.Flow
+import java.time.ZoneId
 
 object ExpensesRepository {
     private lateinit var dao: ExpenseDao
@@ -37,6 +39,18 @@ object ExpensesRepository {
 
     /** Todos los gastos generados por suscripciones (para deduplicar por sub+mes). */
     suspend fun subscriptionChargesOnce(): List<Expense> = dao.subscriptionChargesOnce()
+
+    /**
+     * Heurística anti doble carga: ¿ya existe un gasto con el mismo comercio y monto
+     * el mismo día? El caller decide si pide confirmación antes de insertar.
+     */
+    suspend fun findSameDayDuplicate(merchant: String, amount: Int, dateMillis: Long): Expense? {
+        val zone = ZoneId.systemDefault()
+        val day = dateMillis.toLocalDate()
+        val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return dao.findDuplicate(merchant.trim(), amount, from, to)
+    }
 
     suspend fun add(expense: Expense) {
         // Room asigna el id real al insertar; sincronizamos esa copia (no el id=0 entrante).

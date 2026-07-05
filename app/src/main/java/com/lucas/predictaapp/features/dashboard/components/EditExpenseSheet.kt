@@ -78,11 +78,13 @@ fun EditExpenseSheet(
     categories: List<Category>,
     onSave: (Expense) -> Unit,
     onDismiss: () -> Unit,
+    title: String = "Editar transacción",
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var merchant by remember { mutableStateOf(expense.merchant) }
-    var amount by remember { mutableStateOf(expense.amount.toString()) }
+    // Alta nueva (amount 0): campo vacío en vez de un "0" que hay que borrar.
+    var amount by remember { mutableStateOf(if (expense.amount > 0) expense.amount.toString() else "") }
     var categoryId by remember { mutableStateOf(expense.categoryId) }
     var dateMillis by remember { mutableStateOf(expense.dateMillis) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -118,7 +120,7 @@ fun EditExpenseSheet(
             verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.md),
         ) {
             Text(
-                text = "Editar transacción",
+                text = title,
                 style = PredictaTypography.cardTitle,
                 color = PredictaColors.cream,
             )

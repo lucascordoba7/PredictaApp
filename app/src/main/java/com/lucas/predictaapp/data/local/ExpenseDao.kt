@@ -46,4 +46,11 @@ interface ExpenseDao {
     /** Todos los gastos generados por suscripciones (para deduplicar por sub+mes). */
     @Query("SELECT * FROM expenses WHERE subscriptionId IS NOT NULL")
     suspend fun subscriptionChargesOnce(): List<Expense>
+
+    /** Posible doble carga: mismo comercio y monto dentro del rango [fromMillis, toMillis). */
+    @Query(
+        "SELECT * FROM expenses WHERE merchant = :merchant COLLATE NOCASE AND amount = :amount " +
+            "AND dateMillis >= :fromMillis AND dateMillis < :toMillis LIMIT 1",
+    )
+    suspend fun findDuplicate(merchant: String, amount: Int, fromMillis: Long, toMillis: Long): Expense?
 }
