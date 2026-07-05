@@ -1,5 +1,10 @@
 package com.lucas.predictaapp.features.chat
 
+import android.Manifest
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -38,13 +43,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -64,6 +77,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.lucas.predictaapp.LaunchAction
+import com.lucas.predictaapp.LaunchActions
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
@@ -113,13 +131,16 @@ private val starters = listOf(
     "Deposité el sueldo \$900k",
 )
 
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen() {
+    val context = LocalContext.current
     val messages = remember { mutableStateListOf<ChatMsg>() }
     val conversationHistory = remember { mutableStateListOf<ChatMessage>() }
     var inputText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val voice = rememberVoiceInput { inputText = it }
 
     val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
     val expenseCategoryNames = remember(allCategories) {
@@ -137,6 +158,32 @@ fun ChatScreen() {
         fn
     }
 
+    fun botMsgFor(extraction: ExpenseExtraction, unknownReply: String?): ChatMsg.Bot = when (extraction) {
+        is ExpenseExtraction.Expense -> ChatMsg.Bot(
+            text = "Encontré este gasto 👇",
+            extraction = extraction,
+        )
+        is ExpenseExtraction.Income -> ChatMsg.Bot(
+            text = "Anotado como ingreso 👇",
+            extraction = extraction,
+        )
+        is ExpenseExtraction.MultiExpense -> ChatMsg.Bot(
+            text = "Encontré ${extraction.expenses.size} gastos 👇",
+            extraction = extraction,
+        )
+        is ExpenseExtraction.Subscription -> ChatMsg.Bot(
+            text = "Detecté una suscripción 👇",
+            extraction = extraction,
+        )
+        is ExpenseExtraction.Clarify -> ChatMsg.Bot(
+            text = extraction.question,
+            extraction = extraction,
+        )
+        is ExpenseExtraction.Unknown -> ChatMsg.Bot(
+            text = unknownReply ?: "Solo puedo ayudarte con gastos e ingresos.",
+        )
+    }
+
     fun send(text: String) {
         if (text.isBlank()) return
         inputText = ""
@@ -152,37 +199,87 @@ fun ChatScreen() {
             val thinkingIdx = messages.indexOfLast { it is ChatMsg.Thinking }
             if (thinkingIdx >= 0) messages.removeAt(thinkingIdx)
 
-            val botMsg = when (extraction) {
-                is ExpenseExtraction.Expense -> ChatMsg.Bot(
-                    text = "Encontré este gasto 👇",
-                    extraction = extraction,
-                )
-                is ExpenseExtraction.Income -> ChatMsg.Bot(
-                    text = "Anotado como ingreso 👇",
-                    extraction = extraction,
-                )
-                is ExpenseExtraction.MultiExpense -> ChatMsg.Bot(
-                    text = "Encontré ${extraction.expenses.size} gastos 👇",
-                    extraction = extraction,
-                )
-                is ExpenseExtraction.Subscription -> ChatMsg.Bot(
-                    text = "Detecté una suscripción 👇",
-                    extraction = extraction,
-                )
-                is ExpenseExtraction.Clarify -> ChatMsg.Bot(
-                    text = extraction.question,
-                    extraction = extraction,
-                )
-                is ExpenseExtraction.Unknown -> ChatMsg.Bot(
-                    text = unknownReply ?: "Solo puedo ayudarte con gastos e ingresos.",
-                )
-            }
-            messages.add(botMsg)
+            messages.add(botMsgFor(extraction, unknownReply))
             listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
-    fun confirmExtraction(index: Int, extraction: ExpenseExtraction) {
+    /** Manda la foto de un ticket al modelo de visión; el resto del flujo es el mismo. */
+    fun sendTicket(uri: Uri) {
+        messages.add(ChatMsg.User("📷 Foto de ticket"))
+        messages.add(ChatMsg.Thinking)
+        scope.launch {
+            val base64 = runCatching { TicketImage.toBase64Jpeg(context, uri) }.getOrNull()
+            val (extraction, reply, raw) = if (base64 == null) {
+                Triple(ExpenseExtraction.Unknown, "No pude leer la imagen. Probá con otra foto.", "")
+            } else {
+                ChatRepository.extractFromTicket(base64, expenseCategoryNames)
+            }
+            conversationHistory.add(ChatMessage("user", "[foto de un ticket]"))
+            if (raw.isNotEmpty()) conversationHistory.add(ChatMessage("assistant", raw))
+
+            val thinkingIdx = messages.indexOfLast { it is ChatMsg.Thinking }
+            if (thinkingIdx >= 0) messages.removeAt(thinkingIdx)
+
+            messages.add(botMsgFor(extraction, reply))
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
+
+    // Cámara (FileProvider en cache) y galería (photo picker, sin permiso).
+    var captureUri by remember { mutableStateOf<Uri?>(null) }
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        if (saved) captureUri?.let { sendTicket(it) }
+    }
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { sendTicket(it) }
+    }
+
+    fun launchCamera() {
+        val uri = TicketImage.createCaptureUri(context)
+        captureUri = uri
+        takePicture.launch(uri)
+    }
+
+    // Con CAMERA declarado en el manifest, TakePicture exige el permiso en runtime.
+    val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA) { granted ->
+        if (granted) launchCamera()
+    }
+
+    fun scanTicket() {
+        if (cameraPermission.status.isGranted) launchCamera() else cameraPermission.launchPermissionRequest()
+    }
+
+    var showAttachSheet by remember { mutableStateOf(false) }
+
+    // Acciones con las que se llegó al chat (widget, shortcut, share, QuickActions).
+    LaunchedEffect(Unit) {
+        LaunchActions.pending.collect { action ->
+            when (action) {
+                LaunchAction.VoiceChat -> {
+                    LaunchActions.clear()
+                    if (!voice.listening) voice.toggle()
+                }
+                LaunchAction.ScanTicket -> {
+                    LaunchActions.clear()
+                    scanTicket()
+                }
+                is LaunchAction.SharedText -> {
+                    LaunchActions.clear()
+                    send(action.text)
+                }
+                is LaunchAction.SharedImage -> {
+                    LaunchActions.clear()
+                    sendTicket(action.uri)
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    var duplicateWarning by remember { mutableStateOf<Pair<Int, ExpenseExtraction.Expense>?>(null) }
+
+    fun reallyConfirm(index: Int, extraction: ExpenseExtraction) {
         val msg = messages[index] as? ChatMsg.Bot ?: return
         messages[index] = msg.copy(confirmed = true)
         scope.launch {
@@ -219,6 +316,21 @@ fun ChatScreen() {
                 )
                 else -> Unit
             }
+        }
+    }
+
+    fun confirmExtraction(index: Int, extraction: ExpenseExtraction) {
+        // Heurística anti doble carga: mismo comercio y monto ya registrados hoy.
+        if (extraction is ExpenseExtraction.Expense) {
+            scope.launch {
+                val dup = ExpensesRepository.findSameDayDuplicate(
+                    extraction.merchant, extraction.amount, extraction.dateMillis,
+                )
+                if (dup != null) duplicateWarning = index to extraction
+                else reallyConfirm(index, extraction)
+            }
+        } else {
+            reallyConfirm(index, extraction)
         }
     }
 
@@ -270,7 +382,97 @@ fun ChatScreen() {
             text = inputText,
             onTextChange = { inputText = it },
             onSend = { send(inputText) },
+            voice = voice,
+            onAttach = { showAttachSheet = true },
         )
+    }
+
+    if (showAttachSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAttachSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = PredictaColors.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
+            ) {
+                AttachOption(
+                    icon = Icons.Filled.CameraAlt,
+                    label = "Sacar foto del ticket",
+                    onClick = {
+                        showAttachSheet = false
+                        scanTicket()
+                    },
+                )
+                AttachOption(
+                    icon = Icons.Filled.PhotoLibrary,
+                    label = "Elegir de la galería",
+                    onClick = {
+                        showAttachSheet = false
+                        pickImage.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    duplicateWarning?.let { (index, expense) ->
+        AlertDialog(
+            onDismissRequest = { duplicateWarning = null },
+            containerColor = PredictaColors.surface,
+            title = {
+                Text("¿Gasto duplicado?", style = PredictaTypography.cardTitle, color = PredictaColors.cream)
+            },
+            text = {
+                Text(
+                    text = "Ya registraste ${expense.merchant} por $${expense.amount.fmtArs()} hoy. ¿Lo registro igual?",
+                    style = PredictaTypography.small,
+                    color = PredictaColors.cream60,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    reallyConfirm(index, expense)
+                    duplicateWarning = null
+                }) { Text("Registrar igual", color = PredictaColors.amber) }
+            },
+            dismissButton = {
+                TextButton(onClick = { duplicateWarning = null }) {
+                    Text("Cancelar", color = PredictaColors.cream60)
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AttachOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.base),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
+            .background(PredictaColors.surfaceHigh)
+            .clickable(onClick = onClick)
+            .padding(PredictaDimensions.Spacing.base),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = PredictaColors.amber,
+            modifier = Modifier.size(22.dp),
+        )
+        Text(text = label, style = PredictaTypography.bodyTight, color = PredictaColors.cream)
     }
 }
 
@@ -985,9 +1187,10 @@ private fun ChatInputBar(
     text: String,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
+    voice: VoiceInputState,
+    onAttach: () -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val voice = rememberVoiceInput(onText = onTextChange)
     val borderColor by animateColorAsState(
         targetValue = when {
             voice.listening -> PredictaColors.coral
@@ -1031,6 +1234,17 @@ private fun ChatInputBar(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm),
         ) {
+            Icon(
+                imageVector = Icons.Filled.CameraAlt,
+                contentDescription = "Escanear ticket",
+                tint = PredictaColors.cream35,
+                modifier = Modifier
+                    .padding(bottom = 9.dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onAttach),
+            )
+
             BasicTextField(
                 value = text,
                 onValueChange = onTextChange,

@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddChart
-import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.lucas.predictaapp.LaunchActions
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -46,36 +47,36 @@ data class QuickAction(
 
 private val actions = listOf(
     QuickAction(
-        icon = Icons.Filled.AddChart,
-        label = "Registrar gasto",
-        sublabel = "Escribir o hablar",
+        icon = Icons.Filled.Bolt,
+        label = "Carga rápida",
+        sublabel = "Monto y categoría, sin IA",
         color = PredictaColors.amber,
         colorSoft = PredictaColors.amberSoft,
-        route = "chat",
+        route = LaunchActions.ACTION_MANUAL,
     ),
     QuickAction(
-        icon = Icons.Filled.CameraAlt,
-        label = "Escanear ticket",
-        sublabel = "Foto o WhatsApp",
+        icon = Icons.Filled.AddChart,
+        label = "Contarle al chat",
+        sublabel = "Escribir o dictar por voz",
         color = PredictaColors.green,
         colorSoft = PredictaColors.greenSoft,
         route = "chat",
     ),
     QuickAction(
+        icon = Icons.Filled.CameraAlt,
+        label = "Escanear ticket",
+        sublabel = "Foto del comprobante",
+        color = PredictaColors.pending,
+        colorSoft = PredictaColors.pendingSoft,
+        route = LaunchActions.ACTION_SCAN,
+    ),
+    QuickAction(
         icon = Icons.Filled.ReceiptLong,
         label = "Transacciones",
         sublabel = "Ver, buscar y filtrar",
-        color = PredictaColors.pending,
-        colorSoft = PredictaColors.pendingSoft,
-        route = "transactions",
-    ),
-    QuickAction(
-        icon = Icons.Filled.BarChart,
-        label = "Ver resumen",
-        sublabel = "Gastos del mes",
         color = PredictaColors.cream60,
         colorSoft = PredictaColors.cream12,
-        route = "dashboard",
+        route = "transactions",
     ),
 )
 

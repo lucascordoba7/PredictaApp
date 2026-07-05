@@ -20,18 +20,17 @@ data class AnthropicMessage(
     val content: List<ContentBlock>,
 )
 
+// El discriminador polimórfico de kotlinx emite "type":"text"/"image" según el
+// @SerialName de cada subclase; una propiedad `type` explícita chocaría con él.
 @Serializable
 sealed class ContentBlock {
     @Serializable
     @SerialName("text")
-    data class Text(val type: String = "text", val text: String) : ContentBlock()
+    data class Text(val text: String) : ContentBlock()
 
     @Serializable
     @SerialName("image")
-    data class Image(
-        val type: String = "image",
-        val source: ImageSource,
-    ) : ContentBlock()
+    data class Image(val source: ImageSource) : ContentBlock()
 }
 
 @Serializable

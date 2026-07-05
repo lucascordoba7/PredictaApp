@@ -4,9 +4,13 @@ import android.util.Log
 import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.ExpenseExtraction
 import com.lucas.predictaapp.data.model.ExpenseSuggestion
+import com.lucas.predictaapp.data.remote.AnthropicMessage
+import com.lucas.predictaapp.data.remote.AnthropicMessageRequest
 import com.lucas.predictaapp.data.remote.ApiProvider
 import com.lucas.predictaapp.data.remote.ChatCompletionRequest
 import com.lucas.predictaapp.data.remote.ChatMessage
+import com.lucas.predictaapp.data.remote.ContentBlock
+import com.lucas.predictaapp.data.remote.ImageSource
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -20,6 +24,9 @@ import java.time.temporal.ChronoUnit
 
 private const val TAG = "ChatRepository"
 private const val MODEL = "llama-3.3-70b-versatile"
+
+// Visión para tickets: Haiku lee comprobantes bien y es el más barato con imagen.
+private const val VISION_MODEL = "claude-haiku-4-5-20251001"
 
 private fun buildSystemPrompt(today: String, expenseCategories: List<String>) = """
 Sos Predicta, un asistente financiero argentino. Extraés gastos e ingresos de texto natural.
@@ -160,6 +167,53 @@ object ChatRepository {
         val raw = response.choices.firstOrNull()?.message?.content
             ?: throw IllegalStateException("Empty response")
 
+        val (extraction, reply) = parseRaw(raw)
+        return Triple(extraction, reply, raw)
+    }
+
+    /**
+     * Extrae un gasto desde la FOTO de un ticket/comprobante (Claude con visión).
+     * Devuelve el mismo Triple que [extract]: el resto del pipeline no distingue origen.
+     */
+    suspend fun extractFromTicket(
+        imageBase64: String,
+        expenseCategories: List<String> = ExpenseCategories.expenseNames,
+    ): Triple<ExpenseExtraction, String?, String> {
+        return try {
+            val today = LocalDate.now().format(isoFmt)
+            val system = buildSystemPrompt(today, expenseCategories) + """
+
+El usuario manda una FOTO de un ticket, recibo o comprobante de pago.
+- Extraé comercio, monto TOTAL (no los ítems) y fecha si aparece → FORMATO A.
+- Si la imagen no es un comprobante o el monto no se lee → FORMATO D (clarify) explicando qué falta.
+"""
+            val response = ApiProvider.anthropicApi.createMessage(
+                AnthropicMessageRequest(
+                    model = VISION_MODEL,
+                    maxTokens = 1024,
+                    system = system,
+                    messages = listOf(
+                        AnthropicMessage(
+                            role = "user",
+                            content = listOf(
+                                ContentBlock.Image(ImageSource(mediaType = "image/jpeg", data = imageBase64)),
+                                ContentBlock.Text("Extraé el gasto de este comprobante. Un solo JSON."),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+            val raw = response.content.firstNotNullOfOrNull { it.text }?.takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("Empty response")
+            val (extraction, reply) = parseRaw(raw)
+            Triple(extraction, reply, raw)
+        } catch (e: Exception) {
+            Log.w(TAG, "Vision call failed", e)
+            Triple(ExpenseExtraction.Unknown, "No pude leer el ticket. Probá con una foto más nítida y de frente.", "")
+        }
+    }
+
+    private fun parseRaw(raw: String): Pair<ExpenseExtraction, String?> {
         val cleaned = raw.trim()
             .removePrefix("```json").removePrefix("```")
             .removeSuffix("```").trim()
@@ -211,6 +265,6 @@ object ChatRepository {
                 ExpenseExtraction.Unknown to reply
             }
         }
-        return Triple(result.first, result.second, raw)
+        return result
     }
 }

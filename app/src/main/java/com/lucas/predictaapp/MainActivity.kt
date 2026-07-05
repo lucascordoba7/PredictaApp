@@ -1,5 +1,7 @@
 package com.lucas.predictaapp
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -26,13 +28,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.IntentCompat
 import androidx.navigation.compose.rememberNavController
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.remote.SyncErrors
 import com.lucas.predictaapp.features.onboarding.OnboardingScreen
+import com.lucas.predictaapp.features.quickactions.ManualExpenseEntry
 import com.lucas.predictaapp.features.quickactions.QuickActionsSheet
 import com.lucas.predictaapp.ui.navigation.BottomNavigationBar
+import com.lucas.predictaapp.ui.navigation.Screen
 import com.lucas.predictaapp.ui.navigation.PredictaNavGraph
 import com.lucas.predictaapp.ui.navigation.bottomNavScreens
 import com.lucas.predictaapp.ui.navigation.rememberCurrentRoute
@@ -51,11 +56,40 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleLaunchIntent(intent)
         setContent {
             PredictaTheme {
                 PredictaRoot()
             }
         }
+    }
+
+    // launchMode singleTask: widget/shortcut/share con la app ya abierta entran por acá.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleLaunchIntent(intent)
+    }
+
+    /** Traducción Intent → LaunchAction (widget, app shortcut o share de otra app). */
+    private fun handleLaunchIntent(intent: Intent?) {
+        intent ?: return
+        val action = when {
+            intent.action == Intent.ACTION_SEND && intent.type == "text/plain" ->
+                intent.getStringExtra(Intent.EXTRA_TEXT)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { LaunchAction.SharedText(it) }
+
+            intent.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true ->
+                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                    ?.let { LaunchAction.SharedImage(it) }
+
+            else -> LaunchActions.fromExtra(intent.getStringExtra(LaunchActions.EXTRA_ACTION))
+        } ?: return
+
+        LaunchActions.set(action)
+        // Evita re-disparar la acción si la Activity se recrea con el mismo Intent.
+        intent.removeExtra(LaunchActions.EXTRA_ACTION)
+        intent.action = null
     }
 }
 
@@ -135,6 +169,7 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
     val currentRoute = rememberCurrentRoute(navController)
     val showBottomBar = currentRoute in bottomNavScreens.map { it.route }
     var showQuickActions by remember { mutableStateOf(false) }
+    var showManualEntry by remember { mutableStateOf(false) }
 
     fun navigate(route: String) {
         navController.navigate(route) {
@@ -143,6 +178,26 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
             }
             launchSingleTop = true
             restoreState = true
+        }
+    }
+
+    // Acciones de lanzamiento (widget/shortcut/share/QuickActions): el scaffold
+    // resuelve la carga manual acá y lleva al chat las que consume ChatScreen.
+    LaunchedEffect(Unit) {
+        LaunchActions.pending.collect { action ->
+            when (action) {
+                LaunchAction.ManualExpense -> {
+                    LaunchActions.clear()
+                    showManualEntry = true
+                }
+                LaunchAction.VoiceChat,
+                LaunchAction.ScanTicket,
+                is LaunchAction.SharedText,
+                is LaunchAction.SharedImage,
+                -> navigate(Screen.Chat.route) // ChatScreen consume la acción del flow
+
+                null -> Unit
+            }
         }
     }
 
@@ -174,7 +229,20 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
     if (showQuickActions) {
         QuickActionsSheet(
             onDismiss = { showQuickActions = false },
-            onNavigate = { route -> navigate(route) },
+            onNavigate = { route ->
+                when (route) {
+                    LaunchActions.ACTION_MANUAL -> showManualEntry = true
+                    LaunchActions.ACTION_SCAN -> {
+                        LaunchActions.set(LaunchAction.ScanTicket)
+                        navigate(Screen.Chat.route)
+                    }
+                    else -> navigate(route)
+                }
+            },
         )
+    }
+
+    if (showManualEntry) {
+        ManualExpenseEntry(onDone = { showManualEntry = false })
     }
 }
