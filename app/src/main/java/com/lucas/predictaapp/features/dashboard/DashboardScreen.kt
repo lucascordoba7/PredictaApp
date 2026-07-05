@@ -58,6 +58,7 @@ import com.lucas.predictaapp.features.dashboard.components.CategorySpendingCard
 import com.lucas.predictaapp.features.dashboard.components.DashboardHeader
 import com.lucas.predictaapp.features.dashboard.components.EditExpenseSheet
 import com.lucas.predictaapp.features.dashboard.components.FixedExpensesCard
+import com.lucas.predictaapp.features.dashboard.components.HowToRegisterCard
 import com.lucas.predictaapp.features.dashboard.components.SectionLabel
 import com.lucas.predictaapp.features.dashboard.components.TransactionsCard
 import com.lucas.predictaapp.features.dashboard.components.SubscriptionsCard
@@ -182,8 +183,9 @@ fun DashboardScreen(onNavigate: (String) -> Unit = {}) {
                     )
                 }
             }
-            item { StaggerCard(5, false) { SectionLabel("Tus metas") } }
-            item { StaggerCard(6, false) { AddGoalCard() } }
+            item { StaggerCard(5, visible) { HowToRegisterCard() } }
+            item { StaggerCard(6, false) { SectionLabel("Tus metas") } }
+            item { StaggerCard(7, false) { AddGoalCard() } }
             if (subscriptions.isNotEmpty()) {
                 item {
                     StaggerCard(8, visible) {

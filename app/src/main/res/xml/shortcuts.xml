@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press del ícono de la app: accesos directos de registro.
+     Cada intent abre MainActivity con el extra que consume LaunchActions. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_action_add"
+        android:shortcutId="manual_expense"
+        android:shortcutLongLabel="@string/shortcut_manual_long"
+        android:shortcutShortLabel="@string/shortcut_manual_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.lucas.predictaapp.MainActivity"
+            android:targetPackage="com.lucas.predictaapp">
+            <extra
+                android:name="predicta_action"
+                android:value="manual" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_action_mic"
+        android:shortcutId="voice_expense"
+        android:shortcutLongLabel="@string/shortcut_voice_long"
+        android:shortcutShortLabel="@string/shortcut_voice_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.lucas.predictaapp.MainActivity"
+            android:targetPackage="com.lucas.predictaapp">
+            <extra
+                android:name="predicta_action"
+                android:value="voice" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_action_camera"
+        android:shortcutId="scan_ticket"
+        android:shortcutLongLabel="@string/shortcut_scan_long"
+        android:shortcutShortLabel="@string/shortcut_scan_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.lucas.predictaapp.MainActivity"
+            android:targetPackage="com.lucas.predictaapp">
+            <extra
+                android:name="predicta_action"
+                android:value="scan" />
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">Predicta</string>
+
+    <!-- Widget de pantalla principal -->
+    <string name="widget_label">Registrar gasto</string>
+    <string name="widget_description">Registrá un gasto en un tap: manual, por voz o con una foto del ticket.</string>
+    <string name="widget_hint">Registrá un gasto</string>
+    <string name="widget_action_manual">Carga rápida</string>
+    <string name="widget_action_voice">Dictar por voz</string>
+    <string name="widget_action_scan">Escanear ticket</string>
+
+    <!-- App shortcuts (long-press del ícono) -->
+    <string name="shortcut_manual_short">Carga rápida</string>
+    <string name="shortcut_manual_long">Registrar un gasto a mano</string>
+    <string name="shortcut_voice_short">Dictar gasto</string>
+    <string name="shortcut_voice_long">Dictar un gasto por voz</string>
+    <string name="shortcut_scan_short">Escanear ticket</string>
+    <string name="shortcut_scan_long">Foto del ticket para registrarlo</string>
 </resources>

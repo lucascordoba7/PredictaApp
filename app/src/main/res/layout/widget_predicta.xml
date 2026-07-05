@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget 4x1: marca a la izquierda, tres accesos de registro a la derecha.
+     Tocar la zona de marca abre la app; mic/cámara/＋ disparan cada flujo directo. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:id="@+id/widget_logo"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/ic_widget_logo" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="#F5A524"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_hint"
+            android:textColor="#8AF4F2EE"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/widget_voice"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:background="@drawable/widget_btn_bg"
+        android:contentDescription="@string/widget_action_voice"
+        android:padding="11dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_action_mic"
+        android:tint="#F4F2EE" />
+
+    <ImageButton
+        android:id="@+id/widget_camera"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/widget_btn_bg"
+        android:contentDescription="@string/widget_action_scan"
+        android:padding="11dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_action_camera"
+        android:tint="#F4F2EE" />
+
+    <ImageButton
+        android:id="@+id/widget_add"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/widget_btn_accent_bg"
+        android:contentDescription="@string/widget_action_manual"
+        android:padding="10dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_action_add"
+        android:tint="#0B0B0D" />
+</LinearLayout>

@@ -43,6 +43,8 @@ Single-module project (`:app`), Kotlin-only, no Java. **No DI framework, no View
 
 **Feature screens** (todas implementadas, no stubs): `features/{dashboard,transactions,chat,profile,onboarding,fixedexpenses,notifications,subscriptions,quickactions}/`. La feature Permito fue eliminada. Cada feature agrupa sus composables y, cuando aplica, una subcarpeta `components/` con las cards reutilizables (ver `features/dashboard/components/`).
 
+**Entry points de registro (además del chat):** `LaunchActions` (package root) traduce los Intents del widget (`widget/PredictaWidgetProvider` + `res/layout/widget_predicta.xml`), los app shortcuts (`res/xml/shortcuts.xml`) y el share target (`ACTION_SEND` texto/imagen en `MainActivity`) a acciones que consume la UI: el scaffold abre la carga manual (`features/quickactions/ManualExpenseEntry`) y el chat resuelve voz (`features/chat/VoiceInput`), escaneo de ticket (`TicketImage` + `ChatRepository.extractFromTicket`, Claude Haiku con visión) y contenido compartido. `ExpensesRepository.findSameDayDuplicate` es la heurística anti doble carga (mismo comercio+monto en el día → confirmación).
+
 **Data layer:**
 - `data/model/` — `@Serializable` data classes: `Expense`, `Subscription`, `Notification`, `FixedExpense`, `Category`, `ExpenseCategory`, `User`. `Fixtures` ya fue removido (PTA-007) — los repos hidratan desde Room directamente con empty states reales.
 - `data/local/` — **Room** (`AppDatabase`) con DAOs: `CategoryDao`, `ExpenseDao`, `FixedExpenseDao`, `NotificationDao`, `SubscriptionDao`. `Converters` para tipos custom. `UserPreferencesRepository` usa **DataStore Preferences** para perfil (nombre/email/ingreso) y flags de onboarding.
