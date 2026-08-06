@@ -2,6 +2,7 @@ package com.lucas.predictaapp.data.repository
 
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.CategoryDao
+import com.lucas.predictaapp.data.local.Session
 import com.lucas.predictaapp.data.model.Category
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.ExpenseCategories
@@ -21,10 +22,27 @@ object CategoryRepository {
 
     /** Baja las categorías de Supabase a Room. Se llama al arrancar y en pull-to-refresh. */
     suspend fun pullFromRemote() {
+        if (!Session.isActive) return
         try {
-            val remote = SupabaseProvider.client?.from("categories")?.select()?.decodeList<Category>()
+            val remote = SupabaseProvider.client?.from("categories")
+                ?.select { filter { eq("userId", Session.userId) } }
+                ?.decodeList<Category>()
                 ?: return
-            if (remote.isNotEmpty()) dao.upsertAll(remote)
+            if (remote.isEmpty()) return
+            // El índice único de `name` es local: si una categoría remota trae el mismo
+            // nombre con otro id, el @Upsert de Room resolvería por PK, no encontraría la
+            // fila y la perdería en silencio — y después los gastos que la referencian
+            // revientan por FK. Borramos la homónima local antes de insertar la remota.
+            val remoteIds = remote.map { it.id }.toSet()
+            dao.getAllOnce()
+                .filter { local -> local.id !in remoteIds && remote.any { it.name == local.name } }
+                .forEach { stale ->
+                    val replacement = remote.first { it.name == stale.name }
+                    ExpensesRepository.reassignCategory(stale.id, replacement.id)
+                    SubscriptionsRepository.reassignCategory(stale.id, replacement.id)
+                    dao.delete(stale.id)
+                }
+            dao.upsertAll(remote)
         } catch (e: Exception) { SyncErrors.report("categories.pull", e) }
     }
 
@@ -35,18 +53,24 @@ object CategoryRepository {
      *  - Nube con datos: el pull ya rehidrató Room, no hacemos nada.
      */
     suspend fun bootstrap() {
+        if (!Session.isActive) return
         val remoteEmpty = try {
-            SupabaseProvider.client?.from("categories")?.select()?.decodeList<Category>()?.isEmpty() ?: true
+            SupabaseProvider.client?.from("categories")
+                ?.select { filter { eq("userId", Session.userId) } }
+                ?.decodeList<Category>()?.isEmpty() ?: true
         } catch (e: Exception) { SyncErrors.report("categories.bootstrap", e); return }
 
         if (dao.countAll() == 0) {
-            dao.insertAll(ExpenseCategories.seed)
+            dao.insertAll(ExpenseCategories.seed.map { it.copy(userId = Session.userId) })
         }
         if (remoteEmpty) pushAll(dao.getAllOnce())
     }
 
     suspend fun add(name: String, emoji: String, color: String, type: CategoryType) {
-        val category = Category(name = name.trim(), emoji = emoji, color = color, type = type, isCustom = true)
+        val category = Category(
+            name = name.trim(), emoji = emoji, color = color, type = type,
+            isCustom = true, userId = Session.userId,
+        )
         // Room asigna el id real; -1 si el nombre ya existía (índice único → IGNORE).
         val newId = dao.insert(category)
         if (newId == -1L) return
@@ -57,7 +81,10 @@ object CategoryRepository {
     }
 
     suspend fun update(category: Category, name: String, emoji: String, color: String, type: CategoryType) {
-        val updated = category.copy(name = name.trim(), emoji = emoji, color = color, type = type)
+        val updated = category.copy(
+            name = name.trim(), emoji = emoji, color = color, type = type,
+            userId = Session.userId,
+        )
         dao.update(updated)
         try {
             SupabaseProvider.client?.from("categories")?.upsert(updated)
@@ -65,7 +92,9 @@ object CategoryRepository {
     }
 
     suspend fun reorder(orderedList: List<Category>) {
-        val reordered = orderedList.mapIndexed { index, cat -> cat.copy(sortOrder = index) }
+        val reordered = orderedList.mapIndexed { index, cat ->
+            cat.copy(sortOrder = index, userId = Session.userId)
+        }
         reordered.forEach { dao.updateSortOrder(it.id, it.sortOrder) }
         try {
             SupabaseProvider.client?.from("categories")?.upsert(reordered)
@@ -91,14 +120,17 @@ object CategoryRepository {
         }
         dao.delete(id)
         try {
-            SupabaseProvider.client?.from("categories")?.delete { filter { eq("id", id) } }
+            SupabaseProvider.client?.from("categories")?.delete {
+                filter { eq("id", id); eq("userId", Session.userId) }
+            }
         } catch (e: Exception) { SyncErrors.report("categories.delete", e) }
     }
 
     private suspend fun pushAll(list: List<Category>) {
         if (list.isEmpty()) return
         try {
-            SupabaseProvider.client?.from("categories")?.upsert(list)
+            SupabaseProvider.client?.from("categories")
+                ?.upsert(list.map { it.copy(userId = Session.userId) })
         } catch (e: Exception) { SyncErrors.report("categories.pushAll", e) }
     }
 }

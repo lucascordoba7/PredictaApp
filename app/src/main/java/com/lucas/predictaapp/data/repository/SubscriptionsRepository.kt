@@ -1,6 +1,7 @@
 package com.lucas.predictaapp.data.repository
 
 import com.lucas.predictaapp.data.local.AppDatabase
+import com.lucas.predictaapp.data.local.Session
 import com.lucas.predictaapp.data.local.SubscriptionDao
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.Subscription
@@ -26,24 +27,30 @@ object SubscriptionsRepository {
 
     /** Baja las suscripciones de Supabase a Room. Se llama al arrancar para rehidratar tras reinstalar. */
     suspend fun pullFromRemote() {
+        if (!Session.isActive) return
         try {
-            val remote = SupabaseProvider.client?.from("subscriptions")?.select()?.decodeList<Subscription>()
+            val remote = SupabaseProvider.client?.from("subscriptions")
+                ?.select { filter { eq("userId", Session.userId) } }
+                ?.decodeList<Subscription>()
                 ?: return
             if (remote.isNotEmpty()) dao.upsertAll(remote)
         } catch (e: Exception) { SyncErrors.report("subscriptions.pull", e) }
     }
 
     suspend fun upsert(sub: Subscription) {
-        dao.upsert(sub)
+        val owned = sub.copy(userId = Session.userId)
+        dao.upsert(owned)
         try {
-            SupabaseProvider.client?.from("subscriptions")?.upsert(sub)
+            SupabaseProvider.client?.from("subscriptions")?.upsert(owned)
         } catch (e: Exception) { SyncErrors.report("subscriptions.upsert", e) }
     }
 
     suspend fun cancel(id: String) {
         dao.delete(id)
         try {
-            SupabaseProvider.client?.from("subscriptions")?.delete { filter { eq("id", id) } }
+            SupabaseProvider.client?.from("subscriptions")?.delete {
+                filter { eq("id", id); eq("userId", Session.userId) }
+            }
         } catch (e: Exception) { SyncErrors.report("subscriptions.delete", e) }
     }
 
@@ -99,7 +106,9 @@ object SubscriptionsRepository {
         dao.reassignCategory(fromId, toId)
         try {
             SupabaseProvider.client?.from("subscriptions")
-                ?.update({ set("categoryId", toId) }) { filter { eq("categoryId", fromId) } }
+                ?.update({ set("categoryId", toId) }) {
+                    filter { eq("categoryId", fromId); eq("userId", Session.userId) }
+                }
         } catch (e: Exception) { SyncErrors.report("subscriptions.reassignCategory", e) }
     }
 }

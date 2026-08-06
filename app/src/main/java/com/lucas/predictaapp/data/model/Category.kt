@@ -33,4 +33,7 @@ data class Category(
     val isCustom: Boolean = false,
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val sortOrder: Int = 0,
+    // Ver Expense.userId. En Supabase la unicidad del nombre es por ("userId", name).
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val userId: String = "",
 )

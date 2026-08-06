@@ -44,6 +44,10 @@ data class Expense(
     // Si el gasto fue generado por una suscripción recurrente, su id (para trazabilidad).
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val subscriptionId: String? = null,
+    // Cuenta dueña de la fila. Room guarda solo la cuenta activa, así que localmente
+    // es siempre el mismo valor; importa al viajar a Supabase, donde conviven varias.
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val userId: String = "",
 )
 
 /**

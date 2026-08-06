@@ -113,14 +113,16 @@ fun PredictaRoot() {
     }
 
     LaunchedEffect(Unit) {
-        // Rehidratar perfil desde Supabase: si existe en la nube, saltea el onboarding.
-        UserPreferencesRepository.pullProfile(context)
-        // Por ahora: usuario fijo. Si no hay perfil (local ni remoto), sembramos el default
-        // en vez de mostrar el onboarding. El flujo de onboarding sigue existiendo para el futuro.
-        if (!UserPreferencesRepository.isOnboardingDone(context).first()) {
-            UserPreferencesRepository.completeOnboarding(context, UserPreferencesRepository.DEFAULT_SETUP)
+        // Sin cuenta abierta en este dispositivo va al onboarding, que ahora ofrece
+        // entrar con un email existente o crear una cuenta nueva. Ya no se siembra
+        // ningún usuario por default: eso hacía que cualquier instalación se apropiara
+        // de los datos de la cuenta única.
+        if (UserPreferencesRepository.restoreSession(context)) {
+            UserPreferencesRepository.pullProfile(context)
+            appState = AppState.Main
+        } else {
+            appState = AppState.Onboarding
         }
-        appState = AppState.Main
     }
 
     // Errores de sync a Supabase → Toast en pantalla (además del log en Logcat).

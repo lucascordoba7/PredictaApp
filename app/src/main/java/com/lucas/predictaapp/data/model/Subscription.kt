@@ -35,6 +35,9 @@ data class Subscription(
     // Categoría del Expense que se genera cada ciclo.
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val categoryId: Long = 0,
+    // Ver Expense.userId.
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    val userId: String = "",
 )
 
 const val ZOMBIE_THRESHOLD_DAYS = 30

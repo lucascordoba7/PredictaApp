@@ -14,7 +14,7 @@ import com.lucas.predictaapp.data.model.Subscription
 
 @Database(
     entities = [Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -70,6 +70,18 @@ abstract class AppDatabase : RoomDatabase() {
                     (SELECT MIN(id) FROM categories)
                 )"""
             )
+        }
+
+        private val MIGRATION_11_12 = Migration(11, 12) { db ->
+            // Cuentas por email: cada fila declara a qué cuenta pertenece.
+            // Room guarda solo la cuenta activa (al cambiar de cuenta se limpian las tablas),
+            // así que localmente esta columna es constante; existe para poder estampar el
+            // dueño al sincronizar con Supabase, donde sí conviven varias cuentas.
+            // El default '' lo rellena UserPreferencesRepository al abrir sesión.
+            listOf("expenses", "subscriptions", "notifications", "categories", "fixed_expenses")
+                .forEach { table ->
+                    db.execSQL("ALTER TABLE $table ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                }
         }
 
         private val MIGRATION_9_10 = Migration(9, 10) { db ->
@@ -196,7 +208,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                        MIGRATION_9_10, MIGRATION_10_11,
+                        MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                     )
                     // El seed de categorías ya no vive acá: lo centraliza
                     // CategoryRepository.bootstrap() tras el pull de Supabase, así evitamos

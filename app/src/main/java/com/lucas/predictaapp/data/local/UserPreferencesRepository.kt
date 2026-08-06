@@ -29,23 +29,12 @@ data class UserSetup(
 
 object UserPreferencesRepository {
     private val KEY_DONE = booleanPreferencesKey("onboarding_done")
+    private val KEY_USER_ID = stringPreferencesKey("user_id")
     private val KEY_NAME = stringPreferencesKey("user_name")
     private val KEY_EMAIL = stringPreferencesKey("user_email")
     private val KEY_INCOME = intPreferencesKey("user_income")
     private val KEY_PAYDAY_DAY = intPreferencesKey("user_payday_day")
     private val KEY_FIXED_MONTHLY = intPreferencesKey("user_fixed_monthly")
-
-    /**
-     * Por ahora: usuario fijo, sin registro real. Se siembra al arrancar si no hay perfil
-     * (ni local ni en la nube). Quitar cuando se implemente Auth / multiusuario.
-     */
-    val DEFAULT_SETUP = UserSetup(
-        name = "Lucas",
-        email = "lucascordoba77@gmail.com",
-        income = 1_500_000,
-        paydayDay = 10,
-        fixedMonthly = 0,
-    )
 
     fun isOnboardingDone(context: Context): Flow<Boolean> =
         context.userDataStore.data.map { it[KEY_DONE] ?: false }
@@ -62,23 +51,105 @@ object UserPreferencesRepository {
             )
         }
 
-    suspend fun completeOnboarding(context: Context, setup: UserSetup) {
+    /** Guarda la cuenta activa en disco y en [Session], para que los repos la vean. */
+    private suspend fun persistSession(context: Context, userId: String, setup: UserSetup) {
+        Session.open(userId)
         context.userDataStore.edit { prefs ->
             prefs[KEY_DONE] = true
+            prefs[KEY_USER_ID] = userId
             prefs[KEY_NAME] = setup.name
             prefs[KEY_EMAIL] = setup.email
             prefs[KEY_INCOME] = setup.income
             prefs[KEY_PAYDAY_DAY] = setup.paydayDay
             prefs[KEY_FIXED_MONTHLY] = setup.fixedMonthly
         }
+    }
+
+    /**
+     * Rehidrata [Session] desde disco al arrancar. Devuelve true si había cuenta abierta.
+     * Sin esto los repos arrancarían sin userId y no filtrarían nada.
+     */
+    suspend fun restoreSession(context: Context): Boolean {
+        val userId = context.userDataStore.data.first()[KEY_USER_ID] ?: return false
+        if (userId.isBlank()) return false
+        Session.open(userId)
+        return true
+    }
+
+    /** Busca una cuenta por email en Supabase. null = no existe (o no hubo red). */
+    private suspend fun findProfileByEmail(email: String): Profile? = try {
+        withTimeoutOrNull(8000) {
+            SupabaseProvider.client?.from("profiles")
+                ?.select { filter { ilike("email", email.trim()) } }
+                ?.decodeList<Profile>()
+                ?.firstOrNull()
+        }
+    } catch (e: Exception) {
+        SyncErrors.report("profiles.findByEmail", e)
+        null
+    }
+
+    sealed class AuthResult {
+        data object Ok : AuthResult()
+        data object NotFound : AuthResult()
+        data object AlreadyExists : AuthResult()
+        data object NoConnection : AuthResult()
+    }
+
+    /** Chequeo temprano en el alta: ¿este email ya tiene cuenta? */
+    suspend fun emailAvailable(email: String): AuthResult {
+        if (SupabaseProvider.client == null) return AuthResult.NoConnection
+        return if (findProfileByEmail(email) != null) AuthResult.AlreadyExists else AuthResult.Ok
+    }
+
+    /**
+     * Login por email contra Supabase (no contra el DataStore local): esto es lo que
+     * permite entrar con la misma cuenta en un dispositivo nuevo y recuperar los datos.
+     * No hay password — ver la nota en [Session].
+     */
+    suspend fun signIn(context: Context, email: String): AuthResult {
+        if (SupabaseProvider.client == null) return AuthResult.NoConnection
+        val profile = findProfileByEmail(email) ?: return AuthResult.NotFound
+        persistSession(
+            context,
+            profile.id,
+            UserSetup(
+                name = profile.name,
+                email = profile.email,
+                income = profile.income,
+                paydayDay = profile.paydayDay,
+                fixedMonthly = profile.fixedMonthly,
+            ),
+        )
+        return AuthResult.Ok
+    }
+
+    /**
+     * Alta de cuenta nueva. Rechaza si el email ya existe: la regla es que registrarse
+     * nunca pise los datos de una cuenta existente — para eso está [signIn].
+     */
+    suspend fun register(context: Context, setup: UserSetup): AuthResult {
+        if (SupabaseProvider.client == null) return AuthResult.NoConnection
+        if (findProfileByEmail(setup.email) != null) return AuthResult.AlreadyExists
+        val userId = Session.newUserId()
+        persistSession(context, userId, setup)
+        pushProfile(setup)
+        return AuthResult.Ok
+    }
+
+    /** Completa el onboarding de una cuenta ya creada (paso de ingreso/día de cobro). */
+    suspend fun completeOnboarding(context: Context, setup: UserSetup) {
+        persistSession(context, Session.userId, setup)
         pushProfile(setup)
     }
 
-    /** Respalda el perfil en Supabase (tabla `profiles`, fila única id="me"). */
+    /** Respalda el perfil de la cuenta activa en Supabase. */
     suspend fun pushProfile(setup: UserSetup) {
+        if (!Session.isActive) return
         try {
             SupabaseProvider.client?.from("profiles")?.upsert(
                 Profile(
+                    id = Session.userId,
                     name = setup.name,
                     email = setup.email,
                     income = setup.income,
@@ -90,15 +161,17 @@ object UserPreferencesRepository {
     }
 
     /**
-     * Baja el perfil de Supabase a DataStore si existe. Llamar al arrancar, antes de
-     * decidir onboarding: si hay perfil en la nube, marca onboarding como hecho y rellena
-     * los datos, así tras reinstalar no te pide registrarte. Con timeout para no colgar
-     * la pantalla de carga si no hay red.
+     * Refresca el perfil de la cuenta activa desde Supabase. Solo corre si ya hay sesión:
+     * ya no puede "adivinar" la cuenta, porque hay más de una fila en la tabla.
+     * Con timeout para no colgar la pantalla de carga si no hay red.
      */
     suspend fun pullProfile(context: Context) {
+        if (!Session.isActive) return
         val remote = try {
             withTimeoutOrNull(4000) {
-                SupabaseProvider.client?.from("profiles")?.select()?.decodeSingleOrNull<Profile>()
+                SupabaseProvider.client?.from("profiles")
+                    ?.select { filter { eq("id", Session.userId) } }
+                    ?.decodeSingleOrNull<Profile>()
             }
         } catch (e: Exception) {
             SyncErrors.report("profiles.pull", e)
@@ -115,10 +188,8 @@ object UserPreferencesRepository {
         }
     }
 
-    suspend fun signIn(context: Context): Boolean =
-        context.userDataStore.data.first()[KEY_DONE] ?: false
-
     suspend fun reset(context: Context) {
+        Session.close()
         context.userDataStore.edit { it.clear() }
     }
 }

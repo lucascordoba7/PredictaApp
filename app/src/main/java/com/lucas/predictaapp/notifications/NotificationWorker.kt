@@ -27,7 +27,13 @@ class NotificationWorker(
 
         return try {
             // Best-effort: datos frescos desde Supabase + generar cargos de suscripción del mes.
-            runCatching { SyncManager.pullAll() }
+            // La sesión se rehidrata acá explícitamente: si el proceso arrancó para correr
+            // este worker, la corrutina de PredictaApp.onCreate puede no haber terminado, y
+            // sin Session.userId los pull no traen nada.
+            runCatching {
+                UserPreferencesRepository.restoreSession(applicationContext)
+                SyncManager.pullAll()
+            }
 
             val ctx = applicationContext
             val today = LocalDate.now()

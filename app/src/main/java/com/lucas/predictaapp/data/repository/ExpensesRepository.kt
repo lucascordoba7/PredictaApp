@@ -2,6 +2,7 @@ package com.lucas.predictaapp.data.repository
 
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.ExpenseDao
+import com.lucas.predictaapp.data.local.Session
 import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseSource
 import com.lucas.predictaapp.data.model.ExpenseWithCategory
@@ -26,8 +27,11 @@ object ExpensesRepository {
 
     /** Baja los gastos de Supabase a Room. Se llama al arrancar para rehidratar tras reinstalar. */
     suspend fun pullFromRemote() {
+        if (!Session.isActive) return
         try {
-            val remote = SupabaseProvider.client?.from("expenses")?.select()?.decodeList<Expense>()
+            val remote = SupabaseProvider.client?.from("expenses")
+                ?.select { filter { eq("userId", Session.userId) } }
+                ?.decodeList<Expense>()
                 ?: return
             if (remote.isNotEmpty()) dao.upsertAll(remote)
         } catch (e: Exception) { SyncErrors.report("expenses.pull", e) }
@@ -54,8 +58,9 @@ object ExpensesRepository {
 
     suspend fun add(expense: Expense) {
         // Room asigna el id real al insertar; sincronizamos esa copia (no el id=0 entrante).
-        val newId = dao.insert(expense)
-        val synced = expense.copy(id = newId)
+        val owned = expense.copy(userId = Session.userId)
+        val newId = dao.insert(owned)
+        val synced = owned.copy(id = newId)
         try {
             SupabaseProvider.client?.from("expenses")?.upsert(synced)
         } catch (e: Exception) { SyncErrors.report("expenses.upsert", e) }
@@ -89,10 +94,11 @@ object ExpensesRepository {
     suspend fun addExpense(expense: Expense) = add(expense)
 
     suspend fun addExpenses(newExpenses: List<Expense>) {
-        val newIds = dao.upsertAll(newExpenses)
+        val owned = newExpenses.map { it.copy(userId = Session.userId) }
+        val newIds = dao.upsertAll(owned)
         // upsertAll devuelve -1 para filas actualizadas (no insertadas); en ese caso
         // conservamos el id original del objeto.
-        val synced = newExpenses.mapIndexed { i, e ->
+        val synced = owned.mapIndexed { i, e ->
             val rowId = newIds.getOrNull(i) ?: -1L
             if (rowId != -1L) e.copy(id = rowId) else e
         }
@@ -103,9 +109,10 @@ object ExpensesRepository {
 
     /** Edita un gasto existente (id real conocido). Actualiza Room y la nube. */
     suspend fun update(expense: Expense) {
-        dao.upsertAll(listOf(expense))
+        val owned = expense.copy(userId = Session.userId)
+        dao.upsertAll(listOf(owned))
         try {
-            SupabaseProvider.client?.from("expenses")?.upsert(expense)
+            SupabaseProvider.client?.from("expenses")?.upsert(owned)
         } catch (e: Exception) { SyncErrors.report("expenses.update", e) }
     }
 
@@ -114,14 +121,18 @@ object ExpensesRepository {
         dao.reassignCategory(fromId, toId)
         try {
             SupabaseProvider.client?.from("expenses")
-                ?.update({ set("categoryId", toId) }) { filter { eq("categoryId", fromId) } }
+                ?.update({ set("categoryId", toId) }) {
+                    filter { eq("categoryId", fromId); eq("userId", Session.userId) }
+                }
         } catch (e: Exception) { SyncErrors.report("expenses.reassignCategory", e) }
     }
 
     suspend fun delete(id: Long) {
         dao.delete(id)
         try {
-            SupabaseProvider.client?.from("expenses")?.delete { filter { eq("id", id) } }
+            SupabaseProvider.client?.from("expenses")?.delete {
+                filter { eq("id", id); eq("userId", Session.userId) }
+            }
         } catch (e: Exception) { SyncErrors.report("expenses.delete", e) }
     }
 }

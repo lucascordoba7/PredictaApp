@@ -62,6 +62,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.local.UserSetup
+import com.lucas.predictaapp.data.repository.SyncManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -313,10 +316,14 @@ private fun RegisterContent(
     onBack: () -> Unit,
     onContinue: (name: String, email: String) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf(false) }
     var emailError by remember { mutableStateOf(false) }
+    var takenError by remember { mutableStateOf(false) }
+    var offlineError by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
 
     fun validate(): Boolean {
         nameError = name.isBlank()
@@ -369,7 +376,7 @@ private fun RegisterContent(
         FieldLabel("Email")
         OnboardingTextField(
             value = email,
-            onValueChange = { email = it; emailError = false },
+            onValueChange = { email = it; emailError = false; takenError = false; offlineError = false },
             placeholder = "tu@email.com",
             isError = emailError,
             keyboardOptions = KeyboardOptions(
@@ -377,11 +384,33 @@ private fun RegisterContent(
                 imeAction = ImeAction.Done,
             ),
         )
-        if (emailError) FieldError("Ingresá un email válido")
+        when {
+            emailError -> FieldError("Ingresá un email válido")
+            takenError -> FieldError("Ya existe una cuenta con ese email. Entrá en vez de registrarte.")
+            offlineError -> FieldError("Sin conexión: no podemos crear la cuenta ahora")
+        }
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
-        AmberButton(label = "Continuar") {
-            if (validate()) onContinue(name.trim(), email.trim())
+        AmberButton(label = if (checking) "Verificando…" else "Continuar", enabled = !checking) {
+            if (!validate()) return@AmberButton
+            checking = true
+            takenError = false
+            offlineError = false
+            scope.launch {
+                // Cortamos acá si el email ya tiene cuenta: registrarse nunca debe pisar
+                // los datos de una cuenta existente.
+                when (UserPreferencesRepository.emailAvailable(email.trim())) {
+                    UserPreferencesRepository.AuthResult.Ok -> onContinue(name.trim(), email.trim())
+                    UserPreferencesRepository.AuthResult.AlreadyExists -> {
+                        checking = false
+                        takenError = true
+                    }
+                    else -> {
+                        checking = false
+                        offlineError = true
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
 
@@ -415,6 +444,8 @@ private fun SetupContent(
     var paydayText by remember { mutableStateOf("") }
     var incomeError by remember { mutableStateOf(false) }
     var paydayError by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf(false) }
+    var registerError by remember { mutableStateOf(false) }
 
     fun validate(): Boolean {
         incomeError = incomeText.toIntOrNull() == null || incomeText.toInt() <= 0
@@ -485,24 +516,38 @@ private fun SetupContent(
 
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
-        AmberButton(label = "¡Listo! Empezar") {
-            if (validate()) {
-                val income = incomeText.toIntOrNull() ?: 0
-                val payday = paydayText.toIntOrNull() ?: 1
-                scope.launch {
-                    UserPreferencesRepository.completeOnboarding(
-                        context,
-                        UserSetup(
-                            name = regName,
-                            email = regEmail,
-                            income = income,
-                            paydayDay = payday,
-                            fixedMonthly = 0,
-                        ),
-                    )
-                    onFinish()
+        AmberButton(label = if (creating) "Creando tu cuenta…" else "¡Listo! Empezar", enabled = !creating) {
+            if (!validate()) return@AmberButton
+            val income = incomeText.toIntOrNull() ?: 0
+            val payday = paydayText.toIntOrNull() ?: 1
+            creating = true
+            registerError = false
+            scope.launch {
+                val setup = UserSetup(
+                    name = regName,
+                    email = regEmail,
+                    income = income,
+                    paydayDay = payday,
+                    fixedMonthly = 0,
+                )
+                when (UserPreferencesRepository.register(context, setup)) {
+                    UserPreferencesRepository.AuthResult.Ok -> {
+                        // Cuenta nueva: no hay nada que bajar, pero sí hay que sembrar
+                        // y subir sus categorías iniciales.
+                        withContext(Dispatchers.IO) {
+                            SyncManager.hydrateForCurrentAccount(context)
+                        }
+                        onFinish()
+                    }
+                    else -> {
+                        creating = false
+                        registerError = true
+                    }
                 }
             }
+        }
+        if (registerError) {
+            FieldError("No pudimos crear la cuenta. Revisá la conexión y probá de nuevo.")
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
         StepDots(totalSteps = 3, activeStep = 2)
@@ -525,6 +570,7 @@ private fun SignInContent(
     var email by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf(false) }
     var notFoundError by remember { mutableStateOf(false) }
+    var offlineError by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
 
     Column(
@@ -558,7 +604,7 @@ private fun SignInContent(
         FieldLabel("Email")
         OnboardingTextField(
             value = email,
-            onValueChange = { email = it; emailError = false; notFoundError = false },
+            onValueChange = { email = it; emailError = false; notFoundError = false; offlineError = false },
             placeholder = "tu@email.com",
             isError = emailError || notFoundError,
             keyboardOptions = KeyboardOptions(
@@ -568,7 +614,8 @@ private fun SignInContent(
         )
         when {
             emailError -> FieldError("Ingresá un email válido")
-            notFoundError -> FieldError("No encontramos una cuenta con ese email en este dispositivo")
+            notFoundError -> FieldError("No encontramos ninguna cuenta con ese email")
+            offlineError -> FieldError("Sin conexión: no podemos verificar tu cuenta ahora")
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
@@ -579,14 +626,22 @@ private fun SignInContent(
             emailError = email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
             if (emailError) return@AmberButton
             loading = true
+            offlineError = false
+            notFoundError = false
             scope.launch {
-                val setup = UserPreferencesRepository.getUserSetup(context).first()
-                when {
-                    setup == null -> {
-                        loading = false
-                        notFoundError = true
+                // Contra Supabase, no contra el DataStore local: así entrar desde un
+                // dispositivo nuevo encuentra la cuenta y recupera sus datos.
+                when (UserPreferencesRepository.signIn(context, email)) {
+                    UserPreferencesRepository.AuthResult.Ok -> {
+                        withContext(Dispatchers.IO) {
+                            SyncManager.hydrateForCurrentAccount(context)
+                        }
+                        onSignedIn()
                     }
-                    setup.email.equals(email.trim(), ignoreCase = true) -> onSignedIn()
+                    UserPreferencesRepository.AuthResult.NoConnection -> {
+                        loading = false
+                        offlineError = true
+                    }
                     else -> {
                         loading = false
                         notFoundError = true

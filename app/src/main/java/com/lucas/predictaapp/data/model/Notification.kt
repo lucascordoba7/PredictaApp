@@ -18,6 +18,7 @@ data class Notification(
     val dateGroup: DateGroup,
     val unread: Boolean = false,
     val actions: List<NotificationAction> = emptyList(),
+    val userId: String = "",  // ver Expense.userId
 )
 
 @Serializable

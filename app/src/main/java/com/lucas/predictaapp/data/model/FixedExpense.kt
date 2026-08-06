@@ -15,6 +15,7 @@ data class FixedExpense(
     val dueDayOfMonth: Int,
     val active: Boolean = true,
     val paidMonthKey: String = "",  // "YYYY-MM", se resetea automático cada mes
+    val userId: String = "",        // ver Expense.userId
 )
 
 enum class FixedExpenseStatus { PAGADO, PENDIENTE, VENCIDO }

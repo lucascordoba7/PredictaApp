@@ -1,5 +1,7 @@
 package com.lucas.predictaapp.data.repository
 
+import android.content.Context
+import com.lucas.predictaapp.data.local.AppDatabase
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -23,5 +25,16 @@ object SyncManager {
         SubscriptionsRepository.generateDueCharges()
         // Purga cargos duplicados de corridas concurrentes previas (local y nube).
         SubscriptionsRepository.dedupeCharges()
+    }
+
+    /**
+     * Arranque de una cuenta recién abierta (login o alta). Vacía Room antes de traer:
+     * lo que hubiera quedado es de otra cuenta, y mezclarlo produciría ids colisionados
+     * y gastos huérfanos. Después siembra categorías si la cuenta es nueva.
+     */
+    suspend fun hydrateForCurrentAccount(context: Context) {
+        AppDatabase.getInstance(context).clearAllTables()
+        pullAll()
+        CategoryRepository.bootstrap()
     }
 }

@@ -32,6 +32,10 @@ class PredictaApp : Application() {
         NotificationScheduler.schedule(this)
 
         CoroutineScope(Dispatchers.IO).launch {
+            // La sesión primero: los repos filtran por Session.userId, así que sin cuenta
+            // abierta no hay nada que sincronizar (y sincronizar sería traerse datos ajenos).
+            if (!UserPreferencesRepository.restoreSession(this@PredictaApp)) return@launch
+
             // Rehidratar desde Supabase antes del seed: cubre reinstalación (Room vacío,
             // datos vivos en la nube). Si no hay claves/red, los pull son no-op silenciosos.
             SyncManager.pullAll()
