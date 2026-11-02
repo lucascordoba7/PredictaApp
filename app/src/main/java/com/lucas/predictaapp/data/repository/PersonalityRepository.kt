@@ -12,7 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 private const val TAG = "PersonalityRepository"
-private const val MODEL = "llama-3.3-70b-versatile"
+private const val MODEL = "openai/gpt-oss-120b"
 
 const val MIN_EXPENSES_FOR_PERSONALITY = 3
 

@@ -56,7 +56,28 @@ object ExpensesRepository {
         return dao.findDuplicate(merchant.trim(), amount, from, to)
     }
 
-    suspend fun add(expense: Expense) {
+    suspend fun get(id: Long): Expense? = dao.getById(id)
+
+    /** Movimientos con el mismo monto dentro de ±[windowMillis] (candidatos a duplicado). */
+    suspend fun sameAmountNear(amount: Int, dateMillis: Long, windowMillis: Long): List<Expense> =
+        dao.findByAmountInRange(amount, dateMillis - windowMillis, dateMillis + windowMillis)
+
+    /** Categorías que ya se usaron con este comercio/persona, la más frecuente primero. */
+    suspend fun topCategoriesFor(merchant: String, limit: Int): List<String> =
+        dao.topCategoriesFor(merchant.trim(), limit)
+
+    suspend fun topCategoriesSince(sinceMillis: Long, limit: Int): List<String> =
+        dao.topCategoriesSince(sinceMillis, limit)
+
+    /** Recategoriza un gasto existente por nombre de categoría. false = el gasto ya no existe. */
+    suspend fun setCategory(id: Long, categoryName: String): Boolean {
+        val expense = dao.getById(id) ?: return false
+        update(expense.copy(categoryId = CategoryRepository.resolveId(categoryName, income = false)))
+        return true
+    }
+
+    /** Inserta y devuelve el id que asignó Room. */
+    suspend fun add(expense: Expense): Long {
         // Room asigna el id real al insertar; sincronizamos esa copia (no el id=0 entrante).
         val owned = expense.copy(userId = Session.userId)
         val newId = dao.insert(owned)
@@ -64,6 +85,7 @@ object ExpensesRepository {
         try {
             SupabaseProvider.client?.from("expenses")?.upsert(synced)
         } catch (e: Exception) { SyncErrors.report("expenses.upsert", e) }
+        return newId
     }
 
     /**
@@ -78,9 +100,9 @@ object ExpensesRepository {
         dateMillis: Long,
         income: Boolean = false,
         source: ExpenseSource = ExpenseSource.MANUAL,
-    ) {
+    ): Long {
         val categoryId = CategoryRepository.resolveId(categoryName, income)
-        add(
+        return add(
             Expense(
                 merchant = merchant,
                 categoryId = categoryId,

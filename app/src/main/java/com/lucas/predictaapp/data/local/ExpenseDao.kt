@@ -33,6 +33,32 @@ interface ExpenseDao {
     @Query("UPDATE expenses SET categoryId = :toId WHERE categoryId = :fromId")
     suspend fun reassignCategory(fromId: Long, toId: Long)
 
+    @Query("SELECT * FROM expenses WHERE id = :id")
+    suspend fun getById(id: Long): Expense?
+
+    /** Movimientos con ese monto dentro de [fromMillis, toMillis), sin importar el comercio. */
+    @Query(
+        "SELECT * FROM expenses WHERE amount = :amount " +
+            "AND dateMillis >= :fromMillis AND dateMillis < :toMillis",
+    )
+    suspend fun findByAmountInRange(amount: Int, fromMillis: Long, toMillis: Long): List<Expense>
+
+    /** Categorías de gasto usadas con [merchant], la más frecuente primero ("Otros" no cuenta). */
+    @Query(
+        "SELECT c.name FROM expenses e JOIN categories c ON c.id = e.categoryId " +
+            "WHERE e.merchant = :merchant COLLATE NOCASE AND c.type = 'EXPENSE' AND c.name != 'Otros' " +
+            "GROUP BY c.id ORDER BY COUNT(*) DESC LIMIT :limit",
+    )
+    suspend fun topCategoriesFor(merchant: String, limit: Int): List<String>
+
+    /** Categorías de gasto más usadas desde [sinceMillis] ("Otros" no cuenta). */
+    @Query(
+        "SELECT c.name FROM expenses e JOIN categories c ON c.id = e.categoryId " +
+            "WHERE e.dateMillis >= :sinceMillis AND c.type = 'EXPENSE' AND c.name != 'Otros' " +
+            "GROUP BY c.id ORDER BY COUNT(*) DESC LIMIT :limit",
+    )
+    suspend fun topCategoriesSince(sinceMillis: Long, limit: Int): List<String>
+
     @Query("SELECT COUNT(*) FROM expenses")
     suspend fun count(): Int
 

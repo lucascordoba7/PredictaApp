@@ -14,6 +14,7 @@ object NotificationChannels {
     const val PATRONES = "patrones"      // picos de categoría, hábitos
     const val RECORDATORIOS = "recordatorios" // te olvidaste de registrar
     const val RESUMENES = "resumenes"    // resumen semanal
+    const val CAPTURA = "captura"        // gastos cargados solos desde apps de pago
 
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService<NotificationManager>() ?: return
@@ -30,6 +31,9 @@ object NotificationChannels {
             NotificationChannel(
                 RESUMENES, "Resúmenes", NotificationManager.IMPORTANCE_LOW,
             ).apply { description = "Tu resumen semanal de gastos" },
+            NotificationChannel(
+                CAPTURA, "Gastos detectados", NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = "Pagos de Mercado Pago o el banco que se cargaron solos" },
         )
         manager.createNotificationChannels(channels)
     }

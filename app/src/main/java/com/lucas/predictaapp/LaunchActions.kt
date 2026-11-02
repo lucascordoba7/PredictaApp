@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Acción con la que se abrió la app (widget, app shortcut, share de otra app o
  * QuickActions). MainActivity la deja acá y la UI la consume donde corresponda:
- * el scaffold para la carga manual, el chat para voz/ticket/compartidos.
+ * el scaffold para la carga manual y la edición, el chat para voz/ticket/compartidos.
  */
 sealed class LaunchAction {
     data object ManualExpense : LaunchAction()
@@ -15,6 +15,9 @@ sealed class LaunchAction {
     data object ScanTicket : LaunchAction()
     data class SharedText(val text: String) : LaunchAction()
     data class SharedImage(val uri: Uri) : LaunchAction()
+
+    /** "Editar" desde la notificación de un gasto capturado solo. */
+    data class EditExpense(val expenseId: Long) : LaunchAction()
 }
 
 object LaunchActions {
@@ -23,6 +26,9 @@ object LaunchActions {
     const val ACTION_MANUAL = "manual"
     const val ACTION_VOICE = "voice"
     const val ACTION_SCAN = "scan"
+
+    /** Extra Long con el id del gasto a editar (notificación de captura automática). */
+    const val EXTRA_EXPENSE_ID = "predicta_expense_id"
 
     private val _pending = MutableStateFlow<LaunchAction?>(null)
     val pending: StateFlow<LaunchAction?> = _pending

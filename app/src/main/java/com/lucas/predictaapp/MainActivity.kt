@@ -29,10 +29,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.lucas.predictaapp.data.local.AppDatabase
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
+import com.lucas.predictaapp.data.model.CategoryType
+import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.remote.SyncErrors
+import com.lucas.predictaapp.data.repository.CategoryRepository
+import com.lucas.predictaapp.data.repository.ExpensesRepository
+import com.lucas.predictaapp.features.dashboard.components.EditExpenseSheet
 import com.lucas.predictaapp.features.onboarding.OnboardingScreen
 import com.lucas.predictaapp.features.quickactions.ManualExpenseEntry
 import com.lucas.predictaapp.features.quickactions.QuickActionsSheet
@@ -70,7 +76,7 @@ class MainActivity : ComponentActivity() {
         handleLaunchIntent(intent)
     }
 
-    /** Traducción Intent → LaunchAction (widget, app shortcut o share de otra app). */
+    /** Traducción Intent → LaunchAction (widget, app shortcut, share o notificación de captura). */
     private fun handleLaunchIntent(intent: Intent?) {
         intent ?: return
         val action = when {
@@ -83,12 +89,16 @@ class MainActivity : ComponentActivity() {
                 IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
                     ?.let { LaunchAction.SharedImage(it) }
 
+            intent.hasExtra(LaunchActions.EXTRA_EXPENSE_ID) ->
+                LaunchAction.EditExpense(intent.getLongExtra(LaunchActions.EXTRA_EXPENSE_ID, -1L))
+
             else -> LaunchActions.fromExtra(intent.getStringExtra(LaunchActions.EXTRA_ACTION))
         } ?: return
 
         LaunchActions.set(action)
         // Evita re-disparar la acción si la Activity se recrea con el mismo Intent.
         intent.removeExtra(LaunchActions.EXTRA_ACTION)
+        intent.removeExtra(LaunchActions.EXTRA_EXPENSE_ID)
         intent.action = null
     }
 }
@@ -172,6 +182,9 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
     val showBottomBar = currentRoute in bottomNavScreens.map { it.route }
     var showQuickActions by remember { mutableStateOf(false) }
     var showManualEntry by remember { mutableStateOf(false) }
+    var editingExpense by remember { mutableStateOf<Expense?>(null) }
+    val categories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
+    val scope = rememberCoroutineScope()
 
     fun navigate(route: String) {
         navController.navigate(route) {
@@ -191,6 +204,11 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
                 LaunchAction.ManualExpense -> {
                     LaunchActions.clear()
                     showManualEntry = true
+                }
+                is LaunchAction.EditExpense -> {
+                    LaunchActions.clear()
+                    // Si ya lo borró con "No es gasto", no hay nada que editar.
+                    editingExpense = ExpensesRepository.get(action.expenseId)
                 }
                 LaunchAction.VoiceChat,
                 LaunchAction.ScanTicket,
@@ -246,5 +264,19 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
 
     if (showManualEntry) {
         ManualExpenseEntry(onDone = { showManualEntry = false })
+    }
+
+    editingExpense?.let { expense ->
+        // Un ingreso capturado se edita contra categorías de ingreso, no de gasto.
+        val type = categories.firstOrNull { it.id == expense.categoryId }?.type ?: CategoryType.EXPENSE
+        EditExpenseSheet(
+            expense = expense,
+            categories = categories.filter { it.type == type },
+            onSave = { updated ->
+                scope.launch { ExpensesRepository.update(updated) }
+                editingExpense = null
+            },
+            onDismiss = { editingExpense = null },
+        )
     }
 }

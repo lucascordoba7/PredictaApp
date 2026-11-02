@@ -77,6 +77,10 @@ enum class ExpenseSource {
     WHATSAPP_TEXT,
     WHATSAPP_AUDIO,
     MANUAL,
+    // Detectado automáticamente desde la notificación de una app de pagos (capture/).
+    NOTIFICATION,
+    // Leído de la pantalla de confirmación de una app de pagos por accesibilidad (capture/).
+    SCREEN,
 }
 
 @Serializable

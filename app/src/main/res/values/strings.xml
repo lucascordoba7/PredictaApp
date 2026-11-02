@@ -16,4 +16,6 @@
     <string name="shortcut_voice_long">Dictar un gasto por voz</string>
     <string name="shortcut_scan_short">Escanear ticket</string>
     <string name="shortcut_scan_long">Foto del ticket para registrarlo</string>
+    <string name="screen_reader_label">Predicta · comprobantes</string>
+    <string name="screen_reader_description">Lee la pantalla de confirmación de Mercado Pago y Santander cuando terminás una transferencia o un pago, y carga el gasto solo. No lee ninguna otra app; el saldo, el inicio y la actividad se descartan en el teléfono.</string>
 </resources>
