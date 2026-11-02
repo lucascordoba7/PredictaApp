@@ -53,14 +53,18 @@ Single-module project (`:app`), Kotlin-only, no Java. **No DI framework, no View
 
 **UI shared components:** `ui/components/`
 - `AnimatedAmount` — `AnimatedContent` con slide vertical + fade para montos que cambian.
-- `PredictaPullRefresh` — wrapper `PullToRefreshBox` themed (amber sobre surface). Acepta `onRefresh` opcional; si es null igual da feedback ~700ms.
-- `TransactionRow` + `DeleteExpenseDialog` — fila de transacción y confirmación de borrado compartidas entre el card del dashboard y la pantalla Transacciones.
+- `PredictaPullRefresh` — wrapper `PullToRefreshBox` themed (acento sobre card). Acepta `onRefresh` opcional; si es null igual da feedback ~700ms.
+- `TransactionRow` + `DeleteExpenseDialog` — fila de transacción y confirmación de borrado compartidas entre la home y la pantalla Transacciones (`contentPadding` configurable).
 
-**Design system** (do not use Material3 theme tokens directly — use these instead):
-- `PredictaColors` — paleta dark (charcoal background, amber accent, cream text, coral/green/pending para estados).
-- `PredictaTypography` — IBM Plex Sans (regular/medium/semibold/bold) + IBM Plex Mono. Named scales: `scoreHero`, `titlePage`, `section`, `cardTitle`, `body`, `bodyTight`, `small`, `caption`, `monoCap`, `kpiInline`.
-- `PredictaDimensions` — `Spacing`, `Radius`, `Heights` objects con valores nombrados.
+**Design system — "Atardecer"** (rediseño 2026-11, claro + oscuro siguiendo al sistema; do not use Material3 theme tokens directly — use these instead):
+- `PredictaColors` — lee la paleta activa (`LightPalette` / `DarkPalette`, data class `PredictaPalette`), que `PredictaTheme` fija según `isSystemInDarkTheme()`. Es estado de snapshot: sirve también en `drawBehind` y lambdas. Nunca hardcodear `Color.White` para fondos (usar `glass`, `card`…); blanco solo sobre la hero o el degradé. Roles: `paper` (fondo), `card`, `ink`/`inkSecondary`/`inkTertiary`, `kicker`, `accent`/`accentSoft`/`onAccent` (terracota), `heroStart→heroMid→heroEnd` (degradé de la hero card), `honey`/`onHoney` (ámbar del dado), `success`/`danger`/`warn` + `*Soft`. Brushes: `pageWash`, `sheetWash`, `heroBrush`, `primaryBrush`. Los alias viejos (`charcoal`, `cream*`, `amber*`…) ya no existen.
+- `PredictaTypography` — Plus Jakarta Sans variable autoalojada (`res/font/plus_jakarta_sans.ttf`, OFL en `licenses/`). Escala: `display`, `title`, `heading`, `rowTitle`, `rowSubtitle`, `rowAmount`, `kicker`, `label`, `button`. Quedan estilos viejos (`body`, `small`, `caption`, `cardTitle`…) usados como base de `.copy()`.
+- `PredictaDimensions` — `Spacing`, `Radius` (`badge` 14, `card` 24, `hero` 28), `Heights`.
 - `CategoryColors` — paleta para chips/avatares de categorías.
+- `ui/components/Surfaces.kt` — piezas del lenguaje visual: `Modifier.pageWash()`, `HeroCard` (único bloque grande de color), `PredictaCard` (tarjeta con `softShadow`), `GlyphBadge`, `Kicker`, `SectionHeader`, `StatusPill`, `DiceMark`.
+- `ui/components/Controls.kt` — controles compartidos: `ScreenTopBar` (con `onBack` es el de detalle), `HeaderIconButton`, `PrimaryButton`/`SecondaryButton`, `ChoiceChip`, `SegmentedToggle`, `SearchField`, `PredictaTextField`, `PickerRow`, `EmptyState`, `PredictaSheet` + `SheetHeader`, `PredictaDialog`, `RowDivider`. No usar `OutlinedTextField`, `AlertDialog` ni `ModalBottomSheet` de Material directo.
+- Patrón de pantalla: `pageWash` de fondo, padding lateral 20dp, `ScreenTopBar`, una `HeroCard` como resumen y el contenido en `PredictaCard` agrupadas bajo un `Kicker`. Tocar una fila edita; mantener apretado borra.
+- Diseño de referencia (Claude Design): https://claude.ai/artifact/VtQ9NX2msz3d1USwkmkevw — todas las pantallas migradas (tabs, detalle, sheets y onboarding).
 
 ## Version Catalog
 

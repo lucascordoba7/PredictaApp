@@ -10,7 +10,7 @@ object ThousandsVisualTransformation : VisualTransformation {
         val digits = text.text
         val formatted = buildString {
             digits.reversed().forEachIndexed { i, c ->
-                if (i > 0 && i % 3 == 0) append(',')
+                if (i > 0 && i % 3 == 0) append('.')
                 append(c)
             }
         }.reversed()

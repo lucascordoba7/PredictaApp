@@ -163,7 +163,7 @@ fun PredictaRoot() {
             is AppState.Loading -> Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(PredictaColors.charcoal),
+                    .background(PredictaColors.paper),
             )
 
             is AppState.Onboarding -> OnboardingScreen(
@@ -224,7 +224,7 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .background(PredictaColors.charcoal),
+            .background(PredictaColors.paper),
         bottomBar = {
             if (showBottomBar) {
                 BottomNavigationBar(
@@ -256,6 +256,10 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
                         LaunchActions.set(LaunchAction.ScanTicket)
                         navigate(Screen.Chat.route)
                     }
+                    LaunchActions.ACTION_VOICE -> {
+                        LaunchActions.set(LaunchAction.VoiceChat)
+                        navigate(Screen.Chat.route)
+                    }
                     else -> navigate(route)
                 }
             },
@@ -267,11 +271,10 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
     }
 
     editingExpense?.let { expense ->
-        // Un ingreso capturado se edita contra categorías de ingreso, no de gasto.
-        val type = categories.firstOrNull { it.id == expense.categoryId }?.type ?: CategoryType.EXPENSE
+        // El sheet arranca en el tipo de la categoría del movimiento (gasto o ingreso).
         EditExpenseSheet(
             expense = expense,
-            categories = categories.filter { it.type == type },
+            categories = categories,
             onSave = { updated ->
                 scope.launch { ExpensesRepository.update(updated) }
                 editingExpense = null

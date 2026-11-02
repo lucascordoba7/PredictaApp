@@ -41,11 +41,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lucas.predictaapp.ui.theme.IBMPlexMono
+import com.lucas.predictaapp.ui.theme.JakartaSans
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -62,16 +66,22 @@ fun BottomNavigationBar(
         modifier = modifier
             .fillMaxWidth()
             .height(PredictaDimensions.Heights.tabBar)
-            .background(PredictaColors.surface),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .background(PredictaColors.card)
+            .drawBehind {
+                drawLine(PredictaColors.separator, Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Cinco columnas del mismo ancho: así el + queda en el centro exacto aunque las etiquetas
+        // midan distinto ("Actividad" vs "Chat").
+        val slot = Modifier.weight(1f)
         NavItem(
             icon = Icons.Outlined.Home,
             activeIcon = Icons.Default.Home,
             label = Screen.Dashboard.title,
             isSelected = currentRoute == Screen.Dashboard.route,
             onClick = { onNavigate(Screen.Dashboard.route) },
+            modifier = slot,
         )
 
         NavItem(
@@ -80,9 +90,10 @@ fun BottomNavigationBar(
             label = Screen.Transactions.title,
             isSelected = currentRoute == Screen.Transactions.route,
             onClick = { onNavigate(Screen.Transactions.route) },
+            modifier = slot,
         )
 
-        FabButton(onClick = onFabClick)
+        Box(slot, contentAlignment = Alignment.Center) { FabButton(onClick = onFabClick) }
 
         NavItem(
             icon = Icons.Outlined.ChatBubbleOutline,
@@ -90,12 +101,14 @@ fun BottomNavigationBar(
             label = Screen.Chat.title,
             isSelected = currentRoute == Screen.Chat.route,
             onClick = { onNavigate(Screen.Chat.route) },
+            modifier = slot,
         )
 
         ProfileNavItem(
             isSelected = currentRoute == Screen.Profile.route,
             score = profileScore,
             onClick = { onNavigate(Screen.Profile.route) },
+            modifier = slot,
         )
     }
 }
@@ -122,19 +135,19 @@ private fun NavItem(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
     ) {
         Icon(
             imageVector = if (isSelected) activeIcon else icon,
             contentDescription = label,
-            tint = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
+            tint = if (isSelected) PredictaColors.accent else PredictaColors.inkSecondary,
             modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            style = PredictaTypography.small,
-            color = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
+            style = PredictaTypography.caption.copy(fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold),
+            color = if (isSelected) PredictaColors.accent else PredictaColors.inkSecondary,
         )
     }
 }
@@ -154,13 +167,13 @@ private fun ProfileNavItem(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
     ) {
         Box {
             Icon(
                 imageVector = if (isSelected) Icons.Default.Person else Icons.Outlined.PersonOutline,
                 contentDescription = Screen.Profile.title,
-                tint = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
+                tint = if (isSelected) PredictaColors.accent else PredictaColors.inkSecondary,
                 modifier = Modifier.size(24.dp),
             )
             if (score > 0) {
@@ -169,16 +182,16 @@ private fun ProfileNavItem(
                         .align(Alignment.TopEnd)
                         .offset(x = 6.dp, y = (-2).dp)
                         .clip(RoundedCornerShape(9999.dp))
-                        .background(PredictaColors.amber)
-                        .border(1.5.dp, PredictaColors.surface, RoundedCornerShape(9999.dp))
+                        .background(PredictaColors.accent)
+                        .border(1.5.dp, PredictaColors.card, RoundedCornerShape(9999.dp))
                         .padding(horizontal = 4.dp, vertical = 1.dp),
                 ) {
                     Text(
                         text = score.toString(),
-                        fontFamily = IBMPlexMono,
+                        fontFamily = JakartaSans,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = PredictaColors.charcoal,
+                        color = PredictaColors.onAccent,
                     )
                 }
             }
@@ -186,8 +199,8 @@ private fun ProfileNavItem(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = Screen.Profile.title,
-            style = PredictaTypography.small,
-            color = if (isSelected) PredictaColors.amber else PredictaColors.cream35,
+            style = PredictaTypography.caption.copy(fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold),
+            color = if (isSelected) PredictaColors.accent else PredictaColors.inkSecondary,
         )
     }
 }
@@ -201,14 +214,15 @@ private fun FabButton(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(56.dp)
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.lg))
-            .background(PredictaColors.amber)
+            .shadow(10.dp, RoundedCornerShape(19.dp), spotColor = PredictaColors.heroEnd.copy(alpha = 0.35f))
+            .clip(RoundedCornerShape(19.dp))
+            .background(PredictaColors.primaryBrush)
             .clickable(onClick = onClick),
     ) {
         Icon(
             imageVector = Icons.Default.Add,
             contentDescription = "Acciones rápidas",
-            tint = PredictaColors.onAmber,
+            tint = Color.White, // sobre el degradé: blanco en ambos modos
             modifier = Modifier.size(28.dp),
         )
     }

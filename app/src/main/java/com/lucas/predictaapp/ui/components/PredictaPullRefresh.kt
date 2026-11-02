@@ -54,8 +54,8 @@ fun PredictaPullRefresh(
             PullToRefreshDefaults.Indicator(
                 state = state,
                 isRefreshing = refreshing,
-                containerColor = PredictaColors.surface,
-                color = PredictaColors.amber,
+                containerColor = PredictaColors.card,
+                color = PredictaColors.accent,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         },

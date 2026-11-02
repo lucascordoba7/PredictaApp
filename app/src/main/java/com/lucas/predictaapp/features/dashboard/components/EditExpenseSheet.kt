@@ -1,8 +1,6 @@
 package com.lucas.predictaapp.features.dashboard.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,26 +8,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,32 +39,45 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.data.model.Category
+import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Expense
+import com.lucas.predictaapp.ui.components.ChoiceChip
+import com.lucas.predictaapp.ui.components.Kicker
+import com.lucas.predictaapp.ui.components.PickerRow
+import com.lucas.predictaapp.ui.components.PredictaSheet
+import com.lucas.predictaapp.ui.components.PredictaTextField
+import com.lucas.predictaapp.ui.components.PrimaryButton
+import com.lucas.predictaapp.ui.components.SegmentedToggle
+import com.lucas.predictaapp.ui.components.SheetHeader
 import com.lucas.predictaapp.ui.theme.PredictaColors
-import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import com.lucas.predictaapp.ui.utils.ThousandsVisualTransformation
 import com.lucas.predictaapp.ui.utils.relativeDateLabel
-import java.text.SimpleDateFormat
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private fun localDateToUtcMillis(millis: Long): Long {
@@ -75,9 +90,16 @@ private fun utcMillisToLocalNoon(utcMillis: Long): Long {
     return ld.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }
 
-private fun fmtFullDate(millis: Long): String =
-    SimpleDateFormat("d 'de' MMMM, yyyy", Locale("es", "AR")).format(millis)
+private val fullDate = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM yyyy", Locale("es", "AR"))
 
+private fun fmtFullDate(millis: Long): String =
+    Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate().format(fullDate)
+
+/**
+ * Alta y edición de un movimiento. El monto va grande arriba (es lo único obligatorio de verdad
+ * en una carga rápida); debajo, gasto/ingreso, dónde, categoría y fecha. [categories] trae las de
+ * los dos tipos: el selector de tipo solo aparece si hay de ambos.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditExpenseSheet(
@@ -85,11 +107,9 @@ fun EditExpenseSheet(
     categories: List<Category>,
     onSave: (Expense) -> Unit,
     onDismiss: () -> Unit,
-    title: String = "Editar transacción",
+    title: String = "Editar movimiento",
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    // El sheet solo se arrastra (y cierra) desde arriba: handle + título. En el cuerpo, el
+    // El sheet solo se arrastra (y cierra) desde arriba: manija y título. En el cuerpo, el
     // sobrante del scroll no se le pasa al sheet — si no, un swipe corto sobre las categorías
     // con el formulario arriba de todo lo cerraba y se perdía la edición.
     val blockSheetDrag = remember {
@@ -99,6 +119,7 @@ fun EditExpenseSheet(
         }
     }
 
+    val isNew = expense.id == 0L
     var merchant by remember { mutableStateOf(expense.merchant) }
     // Alta nueva (amount 0): campo vacío en vez de un "0" que hay que borrar.
     var amount by remember { mutableStateOf(if (expense.amount > 0) expense.amount.toString() else "") }
@@ -106,42 +127,34 @@ fun EditExpenseSheet(
     var dateMillis by remember { mutableStateOf(expense.dateMillis) }
     var showDatePicker by remember { mutableStateOf(false) }
 
+    val initialType = categories.firstOrNull { it.id == expense.categoryId }?.type ?: CategoryType.EXPENSE
+    var type by remember { mutableStateOf(initialType) }
+    val hasBothTypes = categories.any { it.type == CategoryType.INCOME } && categories.any { it.type == CategoryType.EXPENSE }
+    val visibleCategories = categories.filter { it.type == type }
+
     val focusManager = LocalFocusManager.current
+    val amountFocus = remember { FocusRequester() }
+    // En un alta el teclado numérico aparece solo: lo primero que se carga es el monto.
+    LaunchedEffect(Unit) { if (isNew) amountFocus.requestFocus() }
 
-    val isValid = merchant.isNotBlank() && amount.toIntOrNull()?.let { it > 0 } == true && categoryId > 0L
+    val isValid = merchant.isNotBlank() && amount.toIntOrNull()?.let { it > 0 } == true &&
+        visibleCategories.any { it.id == categoryId }
+    val noun = if (type == CategoryType.INCOME) "ingreso" else "gasto"
 
-    val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = PredictaColors.amber,
-        unfocusedBorderColor = PredictaColors.lineStrong,
-        focusedLabelColor = PredictaColors.amber,
-        unfocusedLabelColor = PredictaColors.cream35,
-        cursorColor = PredictaColors.amber,
-        focusedTextColor = PredictaColors.cream,
-        unfocusedTextColor = PredictaColors.cream,
-    )
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = PredictaColors.surface,
-    ) {
+    PredictaSheet(onDismiss = onDismiss, wash = true) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding(),
+                .imePadding()
+                .navigationBarsPadding(),
         ) {
             // Fuera del scroll: es la zona de agarre para cerrar arrastrando.
-            Text(
-                text = title,
-                style = PredictaTypography.cardTitle,
-                color = PredictaColors.cream,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PredictaDimensions.Spacing.base)
-                    .padding(top = PredictaDimensions.Spacing.sm, bottom = PredictaDimensions.Spacing.md),
+            SheetHeader(
+                title = if (isNew) "Nuevo $noun" else title,
+                onClose = onDismiss,
+                modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp),
             )
 
-            // Cuerpo: campos scrolleables + acciones fijas ("Guardar" siempre a la vista).
             Column(
                 modifier = Modifier
                     .weight(1f, fill = false)
@@ -154,117 +167,86 @@ fun EditExpenseSheet(
                         .weight(1f, fill = false)
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = PredictaDimensions.Spacing.base),
-                    verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.md),
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
-                    OutlinedTextField(
-                        value = merchant,
-                        onValueChange = { merchant = it },
-                        label = { Text("Nombre") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = fieldColors,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences,
-                            imeAction = ImeAction.Next,
-                        ),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = amount,
-                        onValueChange = { amount = it.filter { c -> c.isDigit() } },
-                        label = { Text("Monto") },
-                        prefix = { Text("$", color = PredictaColors.cream60) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = fieldColors,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                        visualTransformation = ThousandsVisualTransformation,
-                        singleLine = true,
-                    )
-
-                    // Fecha
-                    FieldLabel("FECHA")
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-                            .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.card))
-                            .clickable { showDatePicker = true }
-                            .padding(horizontal = PredictaDimensions.Spacing.base, vertical = 14.dp),
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     ) {
-                        Text(
-                            text = fmtFullDate(dateMillis),
-                            style = PredictaTypography.body.copy(color = PredictaColors.cream),
-                            modifier = Modifier.weight(1f),
+                        AmountInput(
+                            value = amount,
+                            onValueChange = { amount = it.filter { c -> c.isDigit() }.take(10) },
+                            modifier = Modifier.focusRequester(amountFocus),
                         )
-                        Text(
-                            text = relativeDateLabel(dateMillis),
-                            style = PredictaTypography.monoCap.copy(fontSize = 10.5.sp, color = PredictaColors.amber),
-                        )
-                    }
-
-                    // Categoría: todas a la vista (grilla que envuelve) en vez de un carrusel
-                    // horizontal donde había que buscar deslizando.
-                    FieldLabel("CATEGORÍA")
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        categories.forEach { cat ->
-                            CategoryChip(
-                                category = cat,
-                                selected = cat.id == categoryId,
-                                onClick = {
-                                    categoryId = cat.id
-                                    // Cierra el teclado para que la grilla no quede tapada.
-                                    focusManager.clearFocus()
-                                },
+                        if (hasBothTypes) {
+                            SegmentedToggle(
+                                options = listOf("Gasto", "Ingreso"),
+                                selectedIndex = if (type == CategoryType.INCOME) 1 else 0,
+                                onSelect = { type = if (it == 1) CategoryType.INCOME else CategoryType.EXPENSE },
                             )
                         }
                     }
-                }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = PredictaDimensions.Spacing.base)
-                        .padding(top = PredictaDimensions.Spacing.md, bottom = PredictaDimensions.Spacing.sm),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-                            .background(if (isValid) PredictaColors.amber else PredictaColors.cream12)
-                            .clickable(enabled = isValid) {
-                                onSave(
-                                    expense.copy(
-                                        merchant = merchant.trim(),
-                                        amount = amount.toInt(),
-                                        categoryId = categoryId,
-                                        dateMillis = dateMillis,
-                                    ),
+                    PredictaTextField(
+                        value = merchant,
+                        onValueChange = { merchant = it },
+                        label = if (type == CategoryType.INCOME) "De dónde" else "Dónde",
+                        placeholder = if (type == CategoryType.INCOME) "Sueldo, un cliente…" else "Comercio o descripción",
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Done,
+                        ),
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Kicker("Categoría")
+                        // Todas a la vista (grilla que envuelve) en vez de un carrusel horizontal.
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            visibleCategories.forEach { cat ->
+                                ChoiceChip(
+                                    text = cat.name,
+                                    leading = cat.emoji,
+                                    selected = cat.id == categoryId,
+                                    onClick = {
+                                        categoryId = cat.id
+                                        // Cierra el teclado para que la grilla no quede tapada.
+                                        focusManager.clearFocus()
+                                    },
                                 )
                             }
-                            .padding(vertical = PredictaDimensions.Spacing.base),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "Guardar",
-                            style = PredictaTypography.bodyTight.copy(
-                                color = if (isValid) PredictaColors.charcoal else PredictaColors.cream35,
-                            ),
-                        )
+                        }
                     }
 
-                    TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                        Text("Cancelar", style = PredictaTypography.small, color = PredictaColors.cream60)
-                    }
+                    PickerRow(
+                        icon = Icons.Outlined.CalendarMonth,
+                        title = relativeDateLabel(dateMillis).replaceFirstChar { it.uppercase() },
+                        subtitle = fmtFullDate(dateMillis),
+                        onClick = { showDatePicker = true },
+                        trailing = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    )
                 }
+
+                PrimaryButton(
+                    text = if (isNew) "Guardar $noun" else "Guardar cambios",
+                    enabled = isValid,
+                    onClick = {
+                        onSave(
+                            expense.copy(
+                                merchant = merchant.trim(),
+                                amount = amount.toInt(),
+                                categoryId = categoryId,
+                                dateMillis = dateMillis,
+                            ),
+                        )
+                    },
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
+                )
             }
         }
     }
@@ -279,59 +261,68 @@ fun EditExpenseSheet(
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { dateMillis = utcMillisToLocalNoon(it) }
                     showDatePicker = false
-                }) { Text("OK", color = PredictaColors.amber) }
+                }) { Text("Listo", style = PredictaTypography.label, color = PredictaColors.accent) }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancelar", color = PredictaColors.cream60)
+                    Text("Cancelar", style = PredictaTypography.label, color = PredictaColors.inkSecondary)
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = PredictaColors.surface),
+            colors = DatePickerDefaults.colors(containerColor = PredictaColors.card),
         ) {
             DatePicker(
                 state = pickerState,
                 colors = DatePickerDefaults.colors(
-                    containerColor = PredictaColors.surface,
-                    selectedDayContainerColor = PredictaColors.amber,
-                    selectedDayContentColor = PredictaColors.charcoal,
-                    todayDateBorderColor = PredictaColors.amber,
+                    containerColor = PredictaColors.card,
+                    selectedDayContainerColor = PredictaColors.accent,
+                    selectedDayContentColor = PredictaColors.onAccent,
+                    todayDateBorderColor = PredictaColors.accent,
+                    todayContentColor = PredictaColors.accent,
                 ),
             )
         }
     }
 }
 
+/** El monto grande y centrado, con el cursor de marca. Vacío muestra "$0" en gris. */
 @Composable
-private fun FieldLabel(text: String) {
-    Text(
-        text = text,
-        style = PredictaTypography.monoCap.copy(fontSize = 10.sp, letterSpacing = 1.sp),
-        color = PredictaColors.cream35,
+private fun AmountInput(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    val style = PredictaTypography.display.copy(
+        fontSize = 52.sp,
+        lineHeight = 58.sp,
+        letterSpacing = (-2).sp,
+        textAlign = TextAlign.Center,
+        color = PredictaColors.ink,
+    )
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = style,
+        cursorBrush = SolidColor(PredictaColors.accent),
+        visualTransformation = PesoTransformation,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+        modifier = modifier.fillMaxWidth(),
+        decorationBox = { inner ->
+            Box(contentAlignment = Alignment.Center) {
+                if (value.isEmpty()) Text("$0", style = style, color = PredictaColors.inkTertiary)
+                inner()
+            }
+        },
     )
 }
 
-@Composable
-private fun CategoryChip(category: Category, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(PredictaDimensions.Radius.pill)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .clip(shape)
-            .background(if (selected) PredictaColors.amber else PredictaColors.surfaceHigh)
-            .border(1.dp, if (selected) PredictaColors.amber else PredictaColors.lineStrong, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
-        Text(text = category.emoji, fontSize = 14.sp)
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = category.name,
-            maxLines = 1,
-            style = PredictaTypography.small.copy(
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                color = if (selected) PredictaColors.charcoal else PredictaColors.cream60,
-            ),
+/** "12500" → "$12.500": separador de miles más el signo adelante. */
+private object PesoTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        if (text.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        val thousands = ThousandsVisualTransformation.filter(text)
+        return TransformedText(
+            AnnotatedString("$" + thousands.text.text),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int) = thousands.offsetMapping.originalToTransformed(offset) + 1
+                override fun transformedToOriginal(offset: Int) = thousands.offsetMapping.transformedToOriginal((offset - 1).coerceAtLeast(0))
+            },
         )
     }
 }

@@ -65,6 +65,15 @@ import com.lucas.predictaapp.data.local.UserSetup
 import com.lucas.predictaapp.data.repository.SyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.outlined.PieChart
+import com.lucas.predictaapp.ui.components.DiceMark
+import com.lucas.predictaapp.ui.components.GlyphBadge
+import com.lucas.predictaapp.ui.components.HeaderIconButton
+import com.lucas.predictaapp.ui.components.PredictaCard
+import com.lucas.predictaapp.ui.components.PrimaryButton
+import com.lucas.predictaapp.ui.components.pageWash
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
@@ -104,11 +113,9 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(PredictaColors.charcoal)
+            .pageWash()
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
-        // Floating hex particles in background
-        HexParticles()
 
         AnimatedContent(
             targetState = step,
@@ -195,24 +202,23 @@ private fun WelcomeContent(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth(0.85f),
         ) {
-            PredictaLogoDice(size = 56.dp)
+            DiceMark(size = 56.dp)
             Column {
                 Text(
-                    text = "FINANZAS CON CONCIENCIA",
-                    style = PredictaTypography.monoCap.copy(fontSize = 11.sp),
-                    color = PredictaColors.amber,
-                    letterSpacing = 1.5.sp,
+                    text = "TUS GASTOS, CLAROS",
+                    style = PredictaTypography.kicker,
+                    color = PredictaColors.kicker,
                 )
                 Row {
                     Text(
                         text = "predicta",
                         style = tyroBrand,
-                        color = PredictaColors.cream,
+                        color = PredictaColors.ink,
                     )
                     Text(
                         text = ".",
                         style = tyroBrand,
-                        color = PredictaColors.amber,
+                        color = PredictaColors.accent,
                     )
                 }
             }
@@ -223,20 +229,20 @@ private fun WelcomeContent(
         Text(
             text = buildAnnotatedString {
                 append("Tus finanzas,\nmás ")
-                withStyle(SpanStyle(color = PredictaColors.amber, fontWeight = FontWeight.Bold)) {
+                withStyle(SpanStyle(color = PredictaColors.accent, fontWeight = FontWeight.Bold)) {
                     append("claras")
                 }
                 append(" que nunca")
             },
             style = typoHeroTitle,
-            color = PredictaColors.cream,
+            color = PredictaColors.ink,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.sm))
         Text(
             text = "Registrá tus gastos al toque, descubrí patrones\nescondidos y decidí gastar sin culpa.",
             style = typoSubtitle,
-            color = PredictaColors.cream60,
+            color = PredictaColors.inkSecondary,
             textAlign = TextAlign.Center,
         )
 
@@ -248,19 +254,19 @@ private fun WelcomeContent(
             modifier = Modifier.fillMaxWidth(),
         ) {
             FeatureCard(
-                dotCount = 1,
-                title = "Registrá al instante",
-                subtitle = "Anotá gastos en segundos. Predicta aprende de tus movimientos sin esfuerzo.",
+                icon = Icons.Outlined.Bolt,
+                title = "Cargá en segundos",
+                subtitle = "Escribilo, dictalo o sacale una foto al ticket.",
             )
             FeatureCard(
-                dotCount = 2,
-                title = "Sabé si te lo permitís",
-                subtitle = "Describí lo que querés comprar y recibí el veredicto al instante.",
+                icon = Icons.Outlined.PieChart,
+                title = "Mirá en qué se va",
+                subtitle = "Cuánto gastaste en el mes y en qué, de un vistazo.",
             )
             FeatureCard(
-                dotCount = 3,
-                title = "Predicciones con IA",
-                subtitle = "Antes de que sea un problema, te avisamos cómo va a cerrar tu mes.",
+                icon = Icons.Outlined.EventRepeat,
+                title = "Nada se te pasa",
+                subtitle = "Gastos fijos y suscripciones con su día de vencimiento.",
             )
         }
 
@@ -273,7 +279,7 @@ private fun WelcomeContent(
         Text(
             text = "Ya tengo cuenta",
             style = PredictaTypography.body,
-            color = PredictaColors.amber,
+            color = PredictaColors.accent,
             modifier = Modifier
                 .clickable(onClick = onSignIn)
                 .padding(horizontal = PredictaDimensions.Spacing.base, vertical = PredictaDimensions.Spacing.md),
@@ -289,21 +295,16 @@ private fun WelcomeContent(
 }
 
 @Composable
-private fun FeatureCard(dotCount: Int, title: String, subtitle: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-            .background(PredictaColors.surface)
-            .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.card))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.md),
-    ) {
-        HexBadge(dotCount = dotCount, size = 36.dp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = typoCardTitle, color = PredictaColors.cream)
-            Text(subtitle, style = typoCardSub, color = PredictaColors.cream60)
+private fun FeatureCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+    PredictaCard(modifier = Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlyphBadge(size = 40.dp) {
+                Icon(icon, contentDescription = null, tint = PredictaColors.accent, modifier = Modifier.size(20.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = PredictaTypography.rowTitle.copy(fontSize = 15.sp), color = PredictaColors.ink)
+                Text(subtitle, style = PredictaTypography.rowSubtitle, color = PredictaColors.inkSecondary)
+            }
         }
     }
 }
@@ -346,16 +347,16 @@ private fun RegisterContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            PredictaLogoDice(size = 36.dp)
+            DiceMark(size = 36.dp)
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
 
-        Text("Creá tu cuenta", style = typoScreenTitle, color = PredictaColors.cream)
+        Text("Creá tu cuenta", style = typoScreenTitle, color = PredictaColors.ink)
         Spacer(Modifier.height(PredictaDimensions.Spacing.xs))
         Text(
             "Ingresá tus datos para empezar a tomar\ncontrol de tus finanzas.",
             style = typoSubtitle,
-            color = PredictaColors.cream60,
+            color = PredictaColors.inkSecondary,
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
@@ -417,7 +418,7 @@ private fun RegisterContent(
         Text(
             text = "Al continuar aceptás los Términos y Condiciones y la Política de Privacidad.",
             style = PredictaTypography.caption,
-            color = PredictaColors.cream35,
+            color = PredictaColors.inkTertiary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -467,16 +468,16 @@ private fun SetupContent(
 
         Text(
             text = "Hola, ${regName.split(" ").first()} 👋",
-            style = PredictaTypography.monoCap,
-            color = PredictaColors.amber,
+            style = PredictaTypography.label,
+            color = PredictaColors.accent,
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.xs))
-        Text("Configurá tu plata", style = typoScreenTitle, color = PredictaColors.cream)
+        Text("Configurá tu plata", style = typoScreenTitle, color = PredictaColors.ink)
         Spacer(Modifier.height(PredictaDimensions.Spacing.xs))
         Text(
             "Estos datos ayudan a Predicta a darte respuestas precisas.",
             style = typoSubtitle,
-            color = PredictaColors.cream60,
+            color = PredictaColors.inkSecondary,
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
@@ -484,7 +485,7 @@ private fun SetupContent(
         OnboardingTextField(
             value = incomeText,
             onValueChange = { incomeText = it.filter { c -> c.isDigit() }; incomeError = false },
-            placeholder = "900,000",
+            placeholder = "900.000",
             isError = incomeError,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
@@ -588,16 +589,16 @@ private fun SignInContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            PredictaLogoDice(size = 36.dp)
+            DiceMark(size = 36.dp)
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
 
-        Text("Bienvenido de nuevo", style = typoScreenTitle, color = PredictaColors.cream)
+        Text("Bienvenido de nuevo", style = typoScreenTitle, color = PredictaColors.ink)
         Spacer(Modifier.height(PredictaDimensions.Spacing.xs))
         Text(
             "Ingresá el email con el que te registraste en este dispositivo.",
             style = typoSubtitle,
-            color = PredictaColors.cream60,
+            color = PredictaColors.inkSecondary,
         )
         Spacer(Modifier.height(PredictaDimensions.Spacing.xl))
 
@@ -662,13 +663,13 @@ private fun SignInContent(
             Text(
                 text = "¿No tenés cuenta?",
                 style = PredictaTypography.small,
-                color = PredictaColors.cream35,
+                color = PredictaColors.inkTertiary,
             )
             Spacer(Modifier.width(4.dp))
             Text(
                 text = "Registrate",
                 style = PredictaTypography.bodyTight,
-                color = PredictaColors.amber,
+                color = PredictaColors.accent,
                 modifier = Modifier.clickable(onClick = onCreateAccount),
             )
         }
@@ -685,40 +686,12 @@ private fun AmberButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-            .background(if (enabled) PredictaColors.amber else PredictaColors.surfaceHigh)
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            style = typoBtnLabel,
-            color = if (enabled) PredictaColors.onAmber else PredictaColors.cream35,
-        )
-    }
+    PrimaryButton(text = label, onClick = onClick, enabled = enabled)
 }
 
 @Composable
 private fun BackButton(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = "Volver",
-            tint = PredictaColors.cream60,
-            modifier = Modifier.size(18.dp),
-        )
-        Text("Volver", style = PredictaTypography.body, color = PredictaColors.cream60)
-    }
+    HeaderIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Volver", onClick)
 }
 
 @Composable
@@ -726,7 +699,7 @@ private fun FieldLabel(text: String) {
     Text(
         text = text,
         style = typoFieldLabel,
-        color = PredictaColors.cream60,
+        color = PredictaColors.inkSecondary,
         modifier = Modifier.padding(bottom = PredictaDimensions.Spacing.xs),
     )
 }
@@ -736,7 +709,7 @@ private fun FieldError(text: String) {
     Text(
         text = text,
         style = PredictaTypography.caption,
-        color = PredictaColors.coral,
+        color = PredictaColors.danger,
         modifier = Modifier.padding(top = 4.dp),
     )
 }
@@ -752,9 +725,8 @@ private fun OnboardingTextField(
     prefix: String? = null,
 ) {
     val borderColor = when {
-        isError -> PredictaColors.coral
-        value.isNotEmpty() -> PredictaColors.amberEdge
-        else -> PredictaColors.lineStrong
+        isError -> PredictaColors.danger
+        else -> PredictaColors.border
     }
 
     BasicTextField(
@@ -763,11 +735,11 @@ private fun OnboardingTextField(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-            .background(PredictaColors.surface)
-            .border(1.dp, borderColor, RoundedCornerShape(PredictaDimensions.Radius.card)),
-        textStyle = PredictaTypography.body.copy(fontSize = 17.sp, fontWeight = FontWeight.Medium, color = PredictaColors.cream),
-        cursorBrush = SolidColor(PredictaColors.amber),
+            .clip(RoundedCornerShape(16.dp))
+            .background(PredictaColors.card)
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp)),
+        textStyle = PredictaTypography.body.copy(fontSize = 17.sp, fontWeight = FontWeight.Medium, color = PredictaColors.ink),
+        cursorBrush = SolidColor(PredictaColors.accent),
         singleLine = true,
         keyboardOptions = keyboardOptions,
         visualTransformation = visualTransformation,
@@ -782,7 +754,7 @@ private fun OnboardingTextField(
                     Text(
                         text = prefix,
                         style = PredictaTypography.body,
-                        color = PredictaColors.cream60,
+                        color = PredictaColors.inkSecondary,
                         modifier = Modifier.padding(end = 6.dp),
                     )
                 }
@@ -791,7 +763,7 @@ private fun OnboardingTextField(
                         Text(
                             text = placeholder,
                             style = PredictaTypography.body,
-                            color = PredictaColors.cream35,
+                            color = PredictaColors.inkTertiary,
                         )
                     }
                     inner()
@@ -814,7 +786,7 @@ private fun StepDots(totalSteps: Int, activeStep: Int) {
                     .height(5.dp)
                     .width(if (active) 18.dp else 5.dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(if (active) PredictaColors.amber else PredictaColors.cream12),
+                    .background(if (active) PredictaColors.accent else PredictaColors.border),
             )
         }
     }

@@ -17,14 +17,19 @@ object PredictaDimensions {
     object Radius {
         val sm = 8.dp
         val md = 12.dp
-        val card = 14.dp
+        /** Insignia de ícono (glyph badge) de 40–42dp. */
+        val badge = 14.dp
+        val card = 24.dp
         val lg = 20.dp
+        /** La hero card con degradé. */
+        val hero = 28.dp
         val pill = 9999.dp
-        val bubble = 18.dp
+        val bubble = 22.dp
     }
 
     object Heights {
-        val tabBar = 80.dp
+        val tabBar = 84.dp
+        val badge = 42.dp
         val topBar = 56.dp
         val cta = 56.dp
         val input = 48.dp

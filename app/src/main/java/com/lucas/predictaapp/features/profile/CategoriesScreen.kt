@@ -7,31 +7,30 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,16 +42,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.predictaapp.data.model.Category
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.repository.CategoryRepository
+import com.lucas.predictaapp.ui.components.GlyphBadge
+import com.lucas.predictaapp.ui.components.HeaderIconButton
+import com.lucas.predictaapp.ui.components.Kicker
+import com.lucas.predictaapp.ui.components.PredictaCard
+import com.lucas.predictaapp.ui.components.PredictaDialog
+import com.lucas.predictaapp.ui.components.PredictaSheet
+import com.lucas.predictaapp.ui.components.PredictaTextField
+import com.lucas.predictaapp.ui.components.PrimaryButton
+import com.lucas.predictaapp.ui.components.RowDivider
+import com.lucas.predictaapp.ui.components.ScreenTopBar
+import com.lucas.predictaapp.ui.components.SegmentedToggle
+import com.lucas.predictaapp.ui.components.SheetHeader
+import com.lucas.predictaapp.ui.components.StatusPill
+import com.lucas.predictaapp.ui.components.pageWash
 import com.lucas.predictaapp.ui.theme.PredictaColors
-import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 import kotlinx.coroutines.launch
 
@@ -68,24 +81,27 @@ private val COLOR_PALETTE = listOf(
     "#8AA8E8", "#C58F6F", "#9DE8A0", "#E07A7A",
 )
 
+/** Ideas de categorías que mucha gente separa. Fijas: no salen de analizar tus gastos. */
 private data class SuggestedCategory(val name: String, val emoji: String, val color: String, val why: String)
 
 private val SUGGESTED = listOf(
-    SuggestedCategory("Café",      "☕", "#C58F6F", "detectamos tx en Starbucks/Havanna este mes"),
-    SuggestedCategory("Streaming", "🎬", "#9D7AE8", "3 servicios sin categorizar"),
-    SuggestedCategory("Mascotas",  "🐾", "#6FD3C5", "compras recurrentes en pet shop"),
+    SuggestedCategory("Café", "☕", "#C58F6F", "Para ver cuánto se va en cafecitos"),
+    SuggestedCategory("Streaming", "🎬", "#9D7AE8", "Netflix, Disney+ y compañía juntos"),
+    SuggestedCategory("Mascotas", "🐾", "#6FD3C5", "Comida, veterinaria y pet shop"),
 )
+
+/** Categorías que no se pueden borrar: a "Otros" van los gastos de las que se borran. */
+private const val FALLBACK_CATEGORY = "Otros"
 
 private fun hexToColor(hex: String): Color = runCatching {
     Color(android.graphics.Color.parseColor(hex))
-}.getOrElse { PredictaColors.amber }
+}.getOrElse { PredictaColors.accent }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(onBack: () -> Unit) {
     val allCategories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
     val expenseCategories = allCategories.filter { it.type == CategoryType.EXPENSE }
-    val incomeCategories  = allCategories.filter { it.type == CategoryType.INCOME }
+    val incomeCategories = allCategories.filter { it.type == CategoryType.INCOME }
 
     // Cada vez que se entra a la pantalla, rehidratar desde Supabase (la fuente compartida).
     LaunchedEffect(Unit) { CategoryRepository.pullFromRemote() }
@@ -94,737 +110,292 @@ fun CategoriesScreen(onBack: () -> Unit) {
     var editTarget by remember { mutableStateOf<Category?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var createPrefill by remember { mutableStateOf<SuggestedCategory?>(null) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var deleting by remember { mutableStateOf<Category?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize().background(PredictaColors.charcoal)) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
-        ) {
-            // Top bar
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 0.dp),
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Volver",
-                        tint = PredictaColors.cream,
-                    )
-                }
-                Text(
-                    text = "Categorías",
-                    style = PredictaTypography.cardTitle.copy(
-                        fontSize = 16.sp,
-                        color = PredictaColors.cream,
-                    ),
-                    modifier = Modifier.weight(1f),
-                )
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(PredictaColors.amberSoft)
-                        .border(1.dp, PredictaColors.amberEdge, CircleShape)
-                        .clickable { createPrefill = null; showCreate = true },
-                ) {
-                    Text(text = "+", style = PredictaTypography.section.copy(color = PredictaColors.amber, fontSize = 18.sp))
-                }
-            }
+    val existingNames = remember(allCategories) { allCategories.map { it.name.trim().lowercase() }.toSet() }
+    val pendingSuggestions = remember(existingNames) { SUGGESTED.filter { it.name.trim().lowercase() !in existingNames } }
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = PredictaDimensions.Spacing.screenPadding),
-            ) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${allCategories.size} categorías · tocá para editar",
-                    style = PredictaTypography.caption.copy(color = PredictaColors.cream35),
-                    modifier = Modifier.padding(bottom = 16.dp),
-                )
-
-                CategorySection(title = "GASTOS", categories = expenseCategories, onTap = { editTarget = it })
-                Spacer(modifier = Modifier.height(24.dp))
-                CategorySection(title = "INGRESOS", categories = incomeCategories, onTap = { editTarget = it })
-
-                val existingNamesSet = remember(allCategories) {
-                    allCategories.map { it.name.trim().lowercase() }.toSet()
-                }
-                val pendingSuggestions = remember(existingNamesSet) {
-                    SUGGESTED.filter { it.name.trim().lowercase() !in existingNamesSet }
-                }
-                if (pendingSuggestions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    SuggestedSection(
-                        suggestions = pendingSuggestions,
-                        onAdd = { s -> createPrefill = s; showCreate = true },
-                    )
-                }
-                Spacer(modifier = Modifier.height(96.dp)) // space for FAB
-            }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .pageWash()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 32.dp),
+    ) {
+        ScreenTopBar(title = "Categorías", onBack = onBack) {
+            HeaderIconButton(Icons.Default.Add, "Crear categoría", { createPrefill = null; showCreate = true })
         }
 
-        // Sticky FAB at bottom
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        listOf(Color.Transparent, PredictaColors.charcoal.copy(alpha = 0.95f))
-                    )
-                )
-                .padding(horizontal = PredictaDimensions.Spacing.screenPadding, vertical = 12.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(9999.dp))
-                    .background(PredictaColors.amber)
-                    .clickable { createPrefill = null; showCreate = true },
-            ) {
-                Text(
-                    text = "+ Crear categoría",
-                    style = PredictaTypography.bodyTight.copy(
-                        color = PredictaColors.onAmber,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp,
-                    ),
-                )
+        CategorySection("Gastos", expenseCategories, onTap = { editTarget = it })
+        CategorySection("Ingresos", incomeCategories, onTap = { editTarget = it })
+
+        if (pendingSuggestions.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Kicker("Ideas", modifier = Modifier.padding(start = 4.dp))
+                PredictaCard(modifier = Modifier.fillMaxWidth()) {
+                    pendingSuggestions.forEachIndexed { i, s ->
+                        SuggestedRow(s, onAdd = { createPrefill = s; showCreate = true })
+                        if (i < pendingSuggestions.lastIndex) RowDivider(inset = 54.dp)
+                    }
+                }
             }
         }
     }
 
-    // Edit sheet
     editTarget?.let { cat ->
-        ModalBottomSheet(
-            onDismissRequest = { editTarget = null },
-            sheetState = sheetState,
-            containerColor = PredictaColors.surface,
-            tonalElevation = 0.dp,
-        ) {
-            CategoryEditorSheet(
-                category = cat,
-                onSave = { name, emoji, color, type ->
+        PredictaSheet(onDismiss = { editTarget = null }, wash = true) {
+            CategoryEditor(
+                title = "Editar categoría",
+                initialName = cat.name,
+                initialEmoji = cat.emoji,
+                initialColor = cat.color,
+                initialType = cat.type,
+                nameEditable = cat.isCustom,
+                existingNames = existingNames - cat.name.trim().lowercase(),
+                confirmLabel = "Guardar cambios",
+                onConfirm = { name, emoji, color, type ->
                     scope.launch { CategoryRepository.update(cat, name, emoji, color, type) }
                     editTarget = null
                 },
-                onDelete = {
-                    scope.launch { CategoryRepository.delete(cat.id) }
-                    editTarget = null
-                },
+                onDelete = if (cat.isCustom && cat.name != FALLBACK_CATEGORY) {
+                    { editTarget = null; deleting = cat }
+                } else null,
                 onClose = { editTarget = null },
             )
         }
     }
 
-    // Create sheet
     if (showCreate) {
-        val existingNames = remember(allCategories) { allCategories.map { it.name.trim().lowercase() }.toSet() }
-        ModalBottomSheet(
-            onDismissRequest = { showCreate = false },
-            sheetState = sheetState,
-            containerColor = PredictaColors.surface,
-            tonalElevation = 0.dp,
-        ) {
-            CategoryCreatorSheet(
-                prefill = createPrefill,
+        PredictaSheet(onDismiss = { showCreate = false; createPrefill = null }, wash = true) {
+            CategoryEditor(
+                title = "Nueva categoría",
+                initialName = createPrefill?.name ?: "",
+                initialEmoji = createPrefill?.emoji ?: EMOJI_GRID.first(),
+                initialColor = createPrefill?.color ?: COLOR_PALETTE.first(),
+                initialType = CategoryType.EXPENSE,
+                nameEditable = true,
                 existingNames = existingNames,
-                onSave = { name, emoji, color, type ->
+                confirmLabel = "Crear categoría",
+                onConfirm = { name, emoji, color, type ->
                     scope.launch { CategoryRepository.add(name, emoji, color, type) }
                     showCreate = false
                     createPrefill = null
                 },
+                onDelete = null,
                 onClose = { showCreate = false; createPrefill = null },
             )
         }
     }
-}
 
-@Composable
-private fun CategorySection(
-    title: String,
-    categories: List<Category>,
-    onTap: (Category) -> Unit,
-) {
-    Text(
-        text = title,
-        style = PredictaTypography.monoCap.copy(
-            color = PredictaColors.cream35,
-            letterSpacing = 1.8.sp,
-            fontSize = 10.sp,
-        ),
-        modifier = Modifier.padding(bottom = 10.dp),
-    )
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-            .background(PredictaColors.surface)
-            .border(1.dp, PredictaColors.line, RoundedCornerShape(PredictaDimensions.Radius.card)),
-    ) {
-        if (categories.isEmpty()) {
-            Text(
-                text = "Sin categorías",
-                style = PredictaTypography.small.copy(color = PredictaColors.cream35),
-                modifier = Modifier.padding(16.dp),
-            )
-        } else {
-            categories.forEachIndexed { index, category ->
-                CategoryListRow(
-                    category = category,
-                    onClick = { onTap(category) },
-                )
-                if (index < categories.lastIndex) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 56.dp)
-                            .height(1.dp)
-                            .background(PredictaColors.line),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryListRow(category: Category, onClick: () -> Unit) {
-    val catColor = hexToColor(category.color)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = true, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-    ) {
-        // Colored bubble (rounded square)
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(catColor.copy(alpha = 0.13f))
-                .border(1.dp, catColor.copy(alpha = 0.33f), RoundedCornerShape(10.dp)),
-        ) {
-            Text(text = category.emoji, fontSize = 16.sp)
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Name + meta
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = category.name,
-                    style = PredictaTypography.body.copy(color = PredictaColors.cream),
-                )
-                if (!category.isCustom) {
-                    // lock icon for system categories
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        LockIcon(tint = PredictaColors.cream35)
-                    }
-                }
-                if (category.isCustom) {
-                    Text(
-                        text = "CUSTOM",
-                        style = PredictaTypography.monoCap.copy(
-                            color = PredictaColors.amber,
-                            fontSize = 9.sp,
-                            letterSpacing = 1.2.sp,
-                        ),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(PredictaColors.amberSoft)
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                    )
-                }
-            }
-        }
-
-        // Color dot
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(catColor),
+    deleting?.let { cat ->
+        PredictaDialog(
+            title = "¿Eliminar ${cat.name}?",
+            text = "Sus movimientos pasan a \"$FALLBACK_CATEGORY\". No se pierde ningún gasto.",
+            confirmLabel = "Eliminar",
+            destructive = true,
+            onConfirm = {
+                scope.launch { CategoryRepository.delete(cat.id) }
+                deleting = null
+            },
+            onDismiss = { deleting = null },
         )
     }
 }
 
 @Composable
-private fun LockIcon(tint: Color) {
-    androidx.compose.foundation.Canvas(modifier = Modifier.size(10.dp)) {
-        val w = size.width
-        val h = size.height
-        val paint = androidx.compose.ui.graphics.Paint().apply {
-            color = tint
-            strokeWidth = 1.2.dp.toPx()
-            style = androidx.compose.ui.graphics.PaintingStyle.Stroke
-            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-            strokeJoin = androidx.compose.ui.graphics.StrokeJoin.Round
-        }
-        // body
-        drawRoundRect(
-            color = tint,
-            topLeft = androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.45f),
-            size = androidx.compose.ui.geometry.Size(w * 0.8f, h * 0.5f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2.dp.toPx()),
-        )
-        // shackle
-        drawArc(
-            color = tint,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = androidx.compose.ui.geometry.Offset(w * 0.25f, h * 0.05f),
-            size = androidx.compose.ui.geometry.Size(w * 0.5f, h * 0.5f),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2.dp.toPx()),
-        )
-    }
-}
-
-@Composable
-private fun SuggestedSection(
-    suggestions: List<SuggestedCategory>,
-    onAdd: (SuggestedCategory) -> Unit,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 10.dp),
-    ) {
-        Text(
-            text = "SUGERIDAS POR PREDICTA",
-            style = PredictaTypography.monoCap.copy(
-                color = PredictaColors.cream35,
-                letterSpacing = 1.8.sp,
-                fontSize = 10.sp,
-            ),
-            modifier = Modifier.weight(1f),
-        )
-    }
+private fun CategorySection(title: String, categories: List<Category>, onTap: (Category) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        suggestions.forEach { s ->
-            SuggestedRow(suggestion = s, onAdd = { onAdd(s) })
+        Kicker("$title · ${categories.size}", modifier = Modifier.padding(start = 4.dp))
+        PredictaCard(modifier = Modifier.fillMaxWidth()) {
+            if (categories.isEmpty()) {
+                Text(
+                    "Sin categorías todavía",
+                    style = PredictaTypography.body,
+                    color = PredictaColors.inkSecondary,
+                    modifier = Modifier.padding(vertical = 16.dp),
+                )
+            }
+            categories.forEachIndexed { index, category ->
+                CategoryRow(category, onClick = { onTap(category) })
+                if (index < categories.lastIndex) RowDivider(inset = 54.dp)
+            }
         }
+    }
+}
+
+@Composable
+private fun CategoryBadge(emoji: String, color: String, size: androidx.compose.ui.unit.Dp = 42.dp) {
+    GlyphBadge(size = size, container = hexToColor(color).copy(alpha = if (PredictaColors.isDark) 0.22f else 0.16f)) {
+        Text(emoji, fontSize = (size.value * 0.43f).sp)
+    }
+}
+
+@Composable
+private fun CategoryRow(category: Category, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        CategoryBadge(category.emoji, category.color)
+        Spacer(Modifier.width(12.dp))
+        Text(category.name, style = PredictaTypography.rowTitle, color = PredictaColors.ink, modifier = Modifier.weight(1f))
+        if (category.isCustom) {
+            StatusPill("Tuya", PredictaColors.accentSoft, PredictaColors.accent)
+            Spacer(Modifier.width(6.dp))
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = PredictaColors.inkTertiary, modifier = Modifier.size(20.dp))
     }
 }
 
 @Composable
 private fun SuggestedRow(suggestion: SuggestedCategory, onAdd: () -> Unit) {
-    val catColor = hexToColor(suggestion.color)
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-            .background(PredictaColors.cream12.copy(alpha = 0.025f))
-            .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.card),)
-            .padding(10.dp),
+            .clickable(role = Role.Button, onClick = onAdd)
+            .padding(vertical = 10.dp),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(catColor.copy(alpha = 0.13f))
-                .border(1.dp, catColor.copy(alpha = 0.33f), CircleShape),
-        ) {
-            Text(text = suggestion.emoji, fontSize = 15.sp)
+        CategoryBadge(suggestion.emoji, suggestion.color)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(suggestion.name, style = PredictaTypography.rowTitle, color = PredictaColors.ink)
+            Text(suggestion.why, style = PredictaTypography.rowSubtitle, color = PredictaColors.inkSecondary)
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(suggestion.name, style = PredictaTypography.body.copy(color = PredictaColors.cream))
-            Text(suggestion.why, style = PredictaTypography.caption.copy(color = PredictaColors.cream35))
-        }
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .clip(RoundedCornerShape(9999.dp))
-                .border(1.dp, PredictaColors.amber, RoundedCornerShape(9999.dp))
-                .clickable(onClick = onAdd)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-        ) {
-            Text(
-                text = "+ Usar",
-                style = PredictaTypography.small.copy(
-                    color = PredictaColors.amber,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp,
-                ),
-            )
-        }
+        Spacer(Modifier.width(8.dp))
+        StatusPill("+ Usar", PredictaColors.accentSoft, PredictaColors.accent)
     }
 }
 
-// ─── Editor sheet (editar categoría existente) ─────────────────
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CategoryEditorSheet(
-    category: Category,
-    onSave: (name: String, emoji: String, color: String, type: CategoryType) -> Unit,
-    onDelete: () -> Unit,
-    onClose: () -> Unit,
-) {
-    var name by remember { mutableStateOf(category.name) }
-    var emoji by remember { mutableStateOf(category.emoji) }
-    var color by remember { mutableStateOf(category.color) }
-    var selectedType by remember { mutableStateOf(category.type) }
-    val isValid = name.trim().isNotEmpty()
-
-    EditorSheetContent(
-        title = "Editar categoría",
-        subtitle = if (category.isCustom) null else "Categoría del sistema",
-        name = name,
-        onNameChange = { name = it },
-        emoji = emoji,
-        onEmojiChange = { emoji = it },
-        color = color,
-        onColorChange = { color = it },
-        selectedType = selectedType,
-        onTypeChange = { selectedType = it },
-        isValid = isValid,
-        isEditing = true,
-        isCustom = category.isCustom,
-        confirmLabel = "Guardar cambios",
-        onConfirm = { onSave(name.trim(), emoji, color, selectedType) },
-        onDelete = onDelete,
-        onClose = onClose,
-    )
-}
-
-// ─── Creator sheet (nueva categoría) ───────────────────────────
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CategoryCreatorSheet(
-    prefill: SuggestedCategory?,
-    existingNames: Set<String>,
-    onSave: (name: String, emoji: String, color: String, type: CategoryType) -> Unit,
-    onClose: () -> Unit,
-) {
-    var name by remember { mutableStateOf(prefill?.name ?: "") }
-    var emoji by remember { mutableStateOf(prefill?.emoji ?: EMOJI_GRID.first()) }
-    var color by remember { mutableStateOf(prefill?.color ?: COLOR_PALETTE.first()) }
-    var selectedType by remember { mutableStateOf(CategoryType.EXPENSE) }
-    val isDuplicate = name.trim().isNotEmpty() && name.trim().lowercase() in existingNames
-    val isValid = name.trim().isNotEmpty() && !isDuplicate
-
-    EditorSheetContent(
-        title = "Nueva categoría",
-        subtitle = null,
-        name = name,
-        onNameChange = { name = it },
-        emoji = emoji,
-        onEmojiChange = { emoji = it },
-        color = color,
-        onColorChange = { color = it },
-        selectedType = selectedType,
-        onTypeChange = { selectedType = it },
-        isValid = isValid,
-        isDuplicate = isDuplicate,
-        isEditing = false,
-        isCustom = true,
-        confirmLabel = "Crear categoría",
-        onConfirm = { onSave(name.trim(), emoji, color, selectedType) },
-        onDelete = null,
-        onClose = onClose,
-    )
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun EditorSheetContent(
+private fun CategoryEditor(
     title: String,
-    subtitle: String?,
-    name: String,
-    onNameChange: (String) -> Unit,
-    emoji: String,
-    onEmojiChange: (String) -> Unit,
-    color: String,
-    onColorChange: (String) -> Unit,
-    selectedType: CategoryType,
-    onTypeChange: (CategoryType) -> Unit,
-    isValid: Boolean,
-    isDuplicate: Boolean = false,
-    isEditing: Boolean,
-    isCustom: Boolean,
+    initialName: String,
+    initialEmoji: String,
+    initialColor: String,
+    initialType: CategoryType,
+    nameEditable: Boolean,
+    existingNames: Set<String>,
     confirmLabel: String,
-    onConfirm: () -> Unit,
+    onConfirm: (name: String, emoji: String, color: String, type: CategoryType) -> Unit,
     onDelete: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
+    var name by remember { mutableStateOf(initialName) }
+    var emoji by remember { mutableStateOf(initialEmoji) }
+    var color by remember { mutableStateOf(initialColor) }
+    var type by remember { mutableStateOf(initialType) }
+    val isDuplicate = name.trim().isNotEmpty() && name.trim().lowercase() in existingNames
+    val isValid = name.trim().isNotEmpty() && !isDuplicate
     val catColor = hexToColor(color)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = PredictaDimensions.Spacing.screenPadding)
-            .padding(bottom = 16.dp),
+            .imePadding()
+            .navigationBarsPadding(),
     ) {
-        // Preview chip
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        SheetHeader(title = title, onClose = onClose, modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp))
+        Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(9999.dp))
-                .background(catColor.copy(alpha = 0.1f))
-                .border(1.dp, catColor.copy(alpha = 0.33f), RoundedCornerShape(9999.dp))
-                .padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(catColor.copy(alpha = 0.2f)),
-            ) {
-                Text(text = emoji, fontSize = 15.sp)
-            }
-            Text(
-                text = if (name.isBlank()) "nombre…" else name,
-                style = PredictaTypography.bodyTight.copy(
-                    color = if (name.isBlank()) PredictaColors.cream35 else PredictaColors.cream,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.2).sp,
-                ),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Name
-        FieldLabel("NOMBRE")
-        var focused by remember { mutableStateOf(false) }
-        BasicTextField(
-            value = name,
-            onValueChange = onNameChange,
-            textStyle = PredictaTypography.body.copy(color = PredictaColors.cream),
-            cursorBrush = SolidColor(PredictaColors.amber),
-            singleLine = true,
-            enabled = isCustom,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .clip(RoundedCornerShape(PredictaDimensions.Radius.md))
-                .background(PredictaColors.charcoal)
-                .border(
-                    1.dp,
-                    if (focused) PredictaColors.amber else PredictaColors.lineStrong,
-                    RoundedCornerShape(PredictaDimensions.Radius.md),
-                )
-                .padding(horizontal = 14.dp)
-                .onFocusChanged { focused = it.isFocused },
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxSize()) {
-                    if (name.isEmpty()) {
-                        Text("ej. Mascotas", style = PredictaTypography.body.copy(color = PredictaColors.cream35))
-                    }
-                    inner()
+            // Vista previa: así se va a ver en las listas.
+            PredictaCard(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge(emoji, color)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = name.ifBlank { "Nombre de la categoría" },
+                        style = PredictaTypography.rowTitle,
+                        color = if (name.isBlank()) PredictaColors.inkTertiary else PredictaColors.ink,
+                    )
                 }
-            },
-        )
-        if (isDuplicate) {
-            Text(
-                text = "Ya existe una categoría con ese nombre",
-                style = PredictaTypography.caption.copy(color = PredictaColors.coral),
-                modifier = Modifier.padding(top = 6.dp),
-            )
-        }
+            }
 
-        Spacer(modifier = Modifier.height(18.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                PredictaTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "Nombre",
+                    placeholder = "Mascotas",
+                    enabled = nameEditable,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                )
+                when {
+                    isDuplicate -> Text("Ya tenés una categoría con ese nombre", style = PredictaTypography.rowSubtitle, color = PredictaColors.danger)
+                    !nameEditable -> Text("Es de las que vienen con la app: podés cambiar ícono, color y tipo.", style = PredictaTypography.rowSubtitle, color = PredictaColors.inkSecondary)
+                }
+            }
 
-        // Emoji grid (8 columns)
-        FieldLabel("ÍCONO")
-        val cols = 8
-        val rows = (EMOJI_GRID.size + cols - 1) / cols
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(rows) { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    repeat(cols) { col ->
-                        val idx = row * cols + col
-                        val e = EMOJI_GRID.getOrNull(idx)
-                        if (e != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Kicker("Tipo")
+                SegmentedToggle(
+                    options = listOf("Gasto", "Ingreso"),
+                    selectedIndex = if (type == CategoryType.INCOME) 1 else 0,
+                    onSelect = { type = if (it == 1) CategoryType.INCOME else CategoryType.EXPENSE },
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Kicker("Ícono")
+                EMOJI_GRID.chunked(8).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { e ->
                             val selected = e == emoji
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .weight(1f)
                                     .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(PredictaDimensions.Radius.sm))
-                                    .background(if (selected) catColor.copy(alpha = 0.2f) else PredictaColors.charcoal)
-                                    .border(
-                                        1.dp,
-                                        if (selected) catColor.copy(alpha = 0.8f) else PredictaColors.line,
-                                        RoundedCornerShape(PredictaDimensions.Radius.sm),
-                                    )
-                                    .clickable { onEmojiChange(e) },
-                            ) {
-                                Text(text = e, fontSize = 18.sp)
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (selected) catColor.copy(alpha = 0.22f) else PredictaColors.card)
+                                    .border(if (selected) 2.dp else 1.dp, if (selected) catColor else PredictaColors.separator, RoundedCornerShape(12.dp))
+                                    .clickable(role = Role.RadioButton) { emoji = e },
+                            ) { Text(e, fontSize = 18.sp) }
+                        }
+                    }
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Kicker("Color")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    COLOR_PALETTE.forEach { hex ->
+                        val selected = hex == color
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(hexToColor(hex))
+                                .clickable(role = Role.RadioButton) { color = hex },
+                        ) {
+                            if (selected) Icon(Icons.Default.Check, contentDescription = "Elegido", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Color swatches
-        FieldLabel("COLOR")
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            COLOR_PALETTE.forEach { hex ->
-                val selected = hex == color
-                val swatchColor = hexToColor(hex)
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(swatchColor)
-                        .border(
-                            width = if (selected) 2.dp else 1.dp,
-                            color = if (selected) PredictaColors.cream else PredictaColors.cream12,
-                            shape = CircleShape,
-                        )
-                        .clickable { onColorChange(hex) },
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Type toggle
-        FieldLabel("TIPO")
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(PredictaDimensions.Radius.md))
-                .background(PredictaColors.charcoal),
-        ) {
-            TypeTab(
-                label = "Gasto",
-                selected = selectedType == CategoryType.EXPENSE,
-                onClick = { onTypeChange(CategoryType.EXPENSE) },
-                modifier = Modifier.weight(1f),
-            )
-            TypeTab(
-                label = "Ingreso",
-                selected = selectedType == CategoryType.INCOME,
-                onClick = { onTypeChange(CategoryType.INCOME) },
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        // Delete (only for custom non-system categories in edit mode)
-        if (isEditing && onDelete != null) {
-            Spacer(modifier = Modifier.height(18.dp))
-            FieldLabel("ACCIONES")
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(PredictaDimensions.Radius.md))
-                    .border(1.dp, PredictaColors.coral.copy(alpha = 0.27f), RoundedCornerShape(PredictaDimensions.Radius.md))
-                    .clickable(onClick = onDelete)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-            ) {
-                Column {
-                    Text("Eliminar categoría", style = PredictaTypography.body.copy(color = PredictaColors.coral))
-                    Text(
-                        "Los gastos existentes se mueven a \"Otros\"",
-                        style = PredictaTypography.caption.copy(color = PredictaColors.cream35),
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        // Buttons
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(9999.dp))
-                    .border(1.dp, PredictaColors.lineStrong, RoundedCornerShape(9999.dp))
-                    .clickable(onClick = onClose),
-            ) {
-                Text("Cancelar", style = PredictaTypography.bodyTight.copy(color = PredictaColors.cream))
-            }
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(2f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(9999.dp))
-                    .background(if (isValid) PredictaColors.amber else PredictaColors.surfaceHigh)
-                    .clickable(enabled = isValid, onClick = onConfirm),
-            ) {
-                Text(
-                    confirmLabel,
-                    style = PredictaTypography.bodyTight.copy(
-                        color = if (isValid) PredictaColors.onAmber else PredictaColors.cream35,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun FieldLabel(text: String) {
-    Text(
-        text = text,
-        style = PredictaTypography.monoCap.copy(
-            color = PredictaColors.cream35,
-            letterSpacing = 1.4.sp,
-        ),
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun TypeTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.md))
-            .background(if (selected) PredictaColors.amberSoft else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-    ) {
-        Text(
-            text = label,
-            style = PredictaTypography.small.copy(
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) PredictaColors.amber else PredictaColors.cream60,
-            ),
+        PrimaryButton(
+            text = confirmLabel,
+            enabled = isValid,
+            onClick = { onConfirm(name.trim(), emoji, color, type) },
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = if (onDelete == null) 16.dp else 0.dp),
         )
+        if (onDelete != null) {
+            TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Text("Eliminar categoría", style = PredictaTypography.label, color = PredictaColors.danger)
+            }
+        }
     }
 }

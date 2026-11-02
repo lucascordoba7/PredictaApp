@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Modo oscuro: mismo tema, fondo cacao para que no haya destello claro al abrir. -->
+    <style name="Theme.PredictaApp" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#1A1310</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.PredictaApp.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#1A1310</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">#0B0B0D</item>
+        <item name="postSplashScreenTheme">@style/Theme.PredictaApp</item>
+    </style>
+</resources>

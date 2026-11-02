@@ -3,181 +3,119 @@ package com.lucas.predictaapp.features.quickactions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddChart
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.DocumentScanner
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.LaunchActions
+import com.lucas.predictaapp.ui.components.GlyphBadge
+import com.lucas.predictaapp.ui.components.HeroCard
+import com.lucas.predictaapp.ui.components.PredictaCard
+import com.lucas.predictaapp.ui.components.PredictaSheet
+import com.lucas.predictaapp.ui.components.SheetHeader
 import com.lucas.predictaapp.ui.theme.PredictaColors
 import com.lucas.predictaapp.ui.theme.PredictaDimensions
 import com.lucas.predictaapp.ui.theme.PredictaTypography
 
-data class QuickAction(
-    val icon: ImageVector,
-    val label: String,
-    val sublabel: String,
-    val color: Color,
-    val colorSoft: Color,
-    val route: String,
-)
-
-private val actions = listOf(
-    QuickAction(
-        icon = Icons.Filled.Bolt,
-        label = "Carga rápida",
-        sublabel = "Monto y categoría, sin IA",
-        color = PredictaColors.amber,
-        colorSoft = PredictaColors.amberSoft,
-        route = LaunchActions.ACTION_MANUAL,
-    ),
-    QuickAction(
-        icon = Icons.Filled.AddChart,
-        label = "Contarle al chat",
-        sublabel = "Escribir o dictar por voz",
-        color = PredictaColors.green,
-        colorSoft = PredictaColors.greenSoft,
-        route = "chat",
-    ),
-    QuickAction(
-        icon = Icons.Filled.CameraAlt,
-        label = "Escanear ticket",
-        sublabel = "Foto del comprobante",
-        color = PredictaColors.pending,
-        colorSoft = PredictaColors.pendingSoft,
-        route = LaunchActions.ACTION_SCAN,
-    ),
-    QuickAction(
-        icon = Icons.Filled.ReceiptLong,
-        label = "Transacciones",
-        sublabel = "Ver, buscar y filtrar",
-        color = PredictaColors.cream60,
-        colorSoft = PredictaColors.cream12,
-        route = "transactions",
-    ),
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Menú del +: la única entrada a las formas de carga. La carga rápida es la principal (tarjeta
+ * con degradé); escanear y dictar van debajo. Para escribir está la pestaña Chat. [onNavigate] recibe una acción de [LaunchActions] o una ruta.
+ */
 @Composable
 fun QuickActionsSheet(
     onDismiss: () -> Unit,
     onNavigate: (String) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    fun pick(route: String) {
+        onDismiss()
+        onNavigate(route)
+    }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = PredictaColors.surface,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = PredictaDimensions.Spacing.sm)
-                    .size(width = 40.dp, height = 4.dp)
-                    .background(PredictaColors.lineStrong, RoundedCornerShape(PredictaDimensions.Radius.pill)),
-            )
-        },
-    ) {
+    PredictaSheet(onDismiss = onDismiss) {
         Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = PredictaDimensions.Spacing.screenPadding,
-                    end = PredictaDimensions.Spacing.screenPadding,
-                    bottom = PredictaDimensions.Spacing.xxl,
-                ),
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
         ) {
-            Text(
-                text = "¿Qué hacemos?",
-                style = PredictaTypography.cardTitle,
-                color = PredictaColors.cream,
-            )
-            Spacer(Modifier.height(PredictaDimensions.Spacing.xs))
-            Text(
-                text = "Elegí una acción rápida",
-                style = PredictaTypography.small,
-                color = PredictaColors.cream35,
-            )
-            Spacer(Modifier.height(PredictaDimensions.Spacing.lg))
+            SheetHeader(title = "¿Qué anotamos?", subtitle = "Elegí cómo cargar el gasto", onClose = onDismiss)
 
-            Column(verticalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.sm)) {
-                actions.forEach { action ->
-                    QuickActionRow(
-                        action = action,
-                        onClick = {
-                            onDismiss()
-                            onNavigate(action.route)
-                        },
-                    )
+            HeroCard(
+                contentPadding = PaddingValues(18.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(PredictaDimensions.Radius.hero))
+                    .clickable(role = Role.Button) { pick(LaunchActions.ACTION_MANUAL) },
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    GlyphBadge(size = 48.dp, container = PredictaColors.honey) {
+                        Icon(Icons.Outlined.Edit, contentDescription = null, tint = PredictaColors.onHoney, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Carga rápida", style = PredictaTypography.cardTitle, color = Color.White)
+                        Text("Monto y categoría, en 5 segundos", style = PredictaTypography.rowSubtitle, color = Color.White.copy(alpha = 0.85f))
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                 }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ActionTile(
+                    icon = Icons.Outlined.DocumentScanner,
+                    title = "Escanear ticket",
+                    subtitle = "Sacale una foto",
+                    onClick = { pick(LaunchActions.ACTION_SCAN) },
+                    modifier = Modifier.weight(1f),
+                )
+                ActionTile(
+                    icon = Icons.Outlined.Mic,
+                    title = "Dictar un gasto",
+                    subtitle = "Decilo y lo anoto",
+                    onClick = { pick(LaunchActions.ACTION_VOICE) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun QuickActionRow(
-    action: QuickAction,
+private fun ActionTile(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-            .background(PredictaColors.surfaceHigh)
-            .clickable(onClick = onClick)
-            .padding(PredictaDimensions.Spacing.base),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PredictaDimensions.Spacing.base),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .background(action.colorSoft, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = action.icon,
-                contentDescription = null,
-                tint = action.color,
-                modifier = Modifier.size(22.dp),
-            )
+    PredictaCard(modifier = modifier, contentPadding = PaddingValues(16.dp), onClick = onClick) {
+        GlyphBadge(size = 44.dp) {
+            Icon(icon, contentDescription = null, tint = PredictaColors.accent, modifier = Modifier.size(22.dp))
         }
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = action.label,
-                style = PredictaTypography.bodyTight,
-                color = PredictaColors.cream,
-            )
-            Text(
-                text = action.sublabel,
-                style = PredictaTypography.caption,
-                color = PredictaColors.cream35,
-            )
-        }
+        Spacer(Modifier.size(12.dp))
+        Text(title, style = PredictaTypography.rowTitle.copy(fontSize = 15.sp, fontWeight = PredictaTypography.button.fontWeight), color = PredictaColors.ink)
+        Text(subtitle, style = PredictaTypography.rowSubtitle, color = PredictaColors.inkSecondary)
     }
 }

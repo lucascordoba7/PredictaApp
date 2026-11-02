@@ -1,53 +1,61 @@
 package com.lucas.predictaapp.features.profile
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lucas.predictaapp.capture.PaymentNotificationListener
+import com.lucas.predictaapp.capture.PaymentScreenReader
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
+import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Personality
 import com.lucas.predictaapp.data.model.UserProfile
+import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
 import com.lucas.predictaapp.data.repository.FixedExpensesRepository
 import com.lucas.predictaapp.data.repository.MIN_EXPENSES_FOR_PERSONALITY
 import com.lucas.predictaapp.data.repository.NotificationsRepository
 import com.lucas.predictaapp.data.repository.PersonalityRepository
 import com.lucas.predictaapp.data.repository.SubscriptionsRepository
+import com.lucas.predictaapp.ui.components.PredictaDialog
+import com.lucas.predictaapp.ui.components.SecondaryButton
+import com.lucas.predictaapp.ui.components.pageWash
 import com.lucas.predictaapp.ui.navigation.Screen
 import com.lucas.predictaapp.ui.theme.PredictaColors
-import com.lucas.predictaapp.ui.theme.PredictaDimensions
-import com.lucas.predictaapp.ui.theme.PredictaTypography
+import com.lucas.predictaapp.ui.utils.fmtArs
 import com.lucas.predictaapp.ui.utils.isCurrentMonth
+import com.lucas.predictaapp.ui.utils.monthYearLabel
+import java.time.YearMonth
+
+// Rutas ficticias: abren los Ajustes de Android en vez de navegar.
+private const val CAPTURE_SETTINGS = "capture_settings"
+private const val SCREEN_READER_SETTINGS = "screen_reader_settings"
 
 @Composable
 fun ProfileScreen(
@@ -60,6 +68,14 @@ fun ProfileScreen(
     val subscriptions by SubscriptionsRepository.subscriptions.collectAsStateWithLifecycle(emptyList())
     val notifications by NotificationsRepository.notifications.collectAsStateWithLifecycle(emptyList())
     val fixedExpenses by FixedExpensesRepository.fixedExpenses.collectAsStateWithLifecycle(emptyList())
+    // Se re-chequea al volver de Ajustes, donde el usuario habilita el acceso.
+    var captureEnabled by remember { mutableStateOf(PaymentNotificationListener.isEnabled(context)) }
+    var screenReaderEnabled by remember { mutableStateOf(PaymentScreenReader.isEnabled(context)) }
+    LifecycleResumeEffect(Unit) {
+        captureEnabled = PaymentNotificationListener.isEnabled(context)
+        screenReaderEnabled = PaymentScreenReader.isEnabled(context)
+        onPauseOrDispose { }
+    }
     val scrollState = rememberScrollState()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
@@ -104,134 +120,130 @@ fun ProfileScreen(
         }
     }
 
+    val categories by CategoryRepository.categories.collectAsStateWithLifecycle(emptyList())
+    val subsMonthly = subscriptions.filter { it.active }.sumOf { it.monthly }
+    val expenseCats = categories.count { it.type == CategoryType.EXPENSE }
+    val incomeCats = categories.count { it.type == CategoryType.INCOME }
+
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(22.dp),
         modifier = Modifier
             .fillMaxSize()
-            .background(PredictaColors.charcoal)
+            .pageWash()
             .verticalScroll(scrollState)
-            .padding(horizontal = PredictaDimensions.Spacing.screenPadding),
+            .padding(horizontal = 20.dp)
+            .padding(top = 20.dp, bottom = 32.dp),
     ) {
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.lg))
+        ProfileHeader(name = user.name, email = user.email)
 
-        ProfileHeader(user = user)
-
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
-
-        ProfileStats(user = user)
-
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
-
-        PersonalityBanner(
-            state = personalityState,
-            onPress = null,
+        ProfileMonthCard(
+            monthLabel = monthYearLabel(YearMonth.now()).substringBefore(' '),
+            income = user.monthIncome,
+            spent = user.monthSpent + user.fixedMonthly,
+            available = user.availableNow,
         )
 
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.lg))
+        PersonalityBanner(state = personalityState)
 
         ProfileMenuSection(
             title = "Finanzas",
             items = listOf(
                 MenuItem(
-                    icon = Icons.Default.Receipt,
-                    label = "Gastos Fijos",
-                    subtitle = "${fixedExpenses.size} configurados",
+                    icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+                    label = "Gastos fijos",
+                    subtitle = if (fixedExpenses.isEmpty()) "Alquiler, expensas, servicios…"
+                    else "${fixedExpenses.size} ${plural(fixedExpenses.size, "configurado", "configurados")} · $${fixedMonthly.fmtArs()}/mes",
                     route = Screen.FixedExpenses.route,
                 ),
                 MenuItem(
-                    icon = Icons.Default.CreditCard,
+                    icon = Icons.Outlined.Autorenew,
                     label = "Suscripciones",
-                    subtitle = "${subscriptions.size} activas",
+                    subtitle = if (subscriptions.isEmpty()) "Netflix, Spotify, el gimnasio…"
+                    else "${subscriptions.count { it.active }} ${plural(subscriptions.count { it.active }, "activa", "activas")} · $${subsMonthly.fmtArs()}/mes",
                     route = Screen.Subscriptions.route,
                 ),
                 MenuItem(
-                    icon = Icons.Default.Category,
+                    icon = Icons.Outlined.Category,
                     label = "Categorías",
+                    subtitle = "$expenseCats de gasto · $incomeCats de ingreso",
                     route = Screen.Categories.route,
                 ),
                 MenuItem(
-                    icon = Icons.Default.Star,
+                    icon = Icons.Outlined.AutoAwesome,
+                    label = "Captura automática",
+                    subtitle = "Lee avisos de Mercado Pago y bancos",
+                    route = CAPTURE_SETTINGS,
+                    status = if (captureEnabled) MenuStatus.ACTIVE else MenuStatus.INACTIVE,
+                ),
+                MenuItem(
+                    icon = Icons.Outlined.Visibility,
+                    label = "Lectura de comprobantes",
+                    subtitle = "Desde la pantalla de pago",
+                    route = SCREEN_READER_SETTINGS,
+                    status = if (screenReaderEnabled) MenuStatus.ACTIVE else MenuStatus.INACTIVE,
+                ),
+                MenuItem(
+                    icon = Icons.Outlined.StarOutline,
                     label = "Score crediticio",
-                    disabled = true,
+                    subtitle = "Tu situación en el BCRA",
+                    status = MenuStatus.SOON,
                 ),
             ),
-            onItemClick = { item -> item.route?.let { onNavigate(it) } },
+            onItemClick = { item ->
+                when (item.route) {
+                    CAPTURE_SETTINGS -> context.startActivity(
+                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                    )
+                    SCREEN_READER_SETTINGS -> context.startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+                    )
+                    null -> Unit
+                    else -> onNavigate(item.route)
+                }
+            },
         )
-
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.base))
 
         ProfileMenuSection(
             title = "General",
             items = listOf(
                 MenuItem(
-                    icon = Icons.Default.Notifications,
+                    icon = Icons.Outlined.Notifications,
                     label = "Notificaciones",
                     badge = notifications.count { it.unread }.takeIf { it > 0 }?.toString(),
                     route = Screen.Notifications.route,
                 ),
                 MenuItem(
-                    icon = Icons.Default.Person,
+                    icon = Icons.Outlined.Person,
                     label = "Datos personales",
-                    disabled = true,
+                    status = MenuStatus.SOON,
                 ),
                 MenuItem(
-                    icon = Icons.Default.Settings,
+                    icon = Icons.Outlined.Settings,
                     label = "Configuración",
-                    disabled = true,
+                    status = MenuStatus.SOON,
                 ),
             ),
             onItemClick = { item -> item.route?.let { onNavigate(it) } },
         )
 
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.lg))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(PredictaDimensions.Radius.card))
-                .background(PredictaColors.coralSoft)
-                .clickable { showSignOutDialog = true }
-                .padding(vertical = PredictaDimensions.Spacing.base),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "Cerrar sesión",
-                style = PredictaTypography.bodyTight,
-                color = PredictaColors.coral,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(PredictaDimensions.Spacing.xxl))
+        SecondaryButton(
+            text = "Cerrar sesión",
+            onClick = { showSignOutDialog = true },
+            leadingIcon = Icons.AutoMirrored.Outlined.Logout,
+            content = PredictaColors.danger,
+        )
     }
 
     if (showSignOutDialog) {
-        AlertDialog(
-            onDismissRequest = { showSignOutDialog = false },
-            containerColor = PredictaColors.surface,
-            title = {
-                Text(
-                    text = "¿Cerrar sesión?",
-                    style = PredictaTypography.cardTitle,
-                    color = PredictaColors.cream,
-                )
-            },
-            text = {
-                Text(
-                    text = "Tus datos quedan en este dispositivo. Para volver a entrar vas a necesitar registrarte de nuevo.",
-                    style = PredictaTypography.small,
-                    color = PredictaColors.cream60,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showSignOutDialog = false; onSignOut() }) {
-                    Text("Sí, cerrar", color = PredictaColors.coral)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSignOutDialog = false }) {
-                    Text("Cancelar", color = PredictaColors.cream60)
-                }
-            },
+        PredictaDialog(
+            title = "¿Cerrar sesión?",
+            text = "Se borran los datos de este teléfono. Lo sincronizado queda en tu cuenta y vuelve cuando entrás con el mismo mail.",
+            confirmLabel = "Cerrar sesión",
+            onConfirm = { showSignOutDialog = false; onSignOut() },
+            onDismiss = { showSignOutDialog = false },
+            destructive = true,
         )
     }
 }
+
+private fun plural(n: Int, one: String, many: String) = if (n == 1) one else many

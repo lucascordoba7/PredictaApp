@@ -2,33 +2,29 @@ package com.lucas.predictaapp.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 
-// Set of Material typography styles to start with
+private val Defaults = Typography()
+
+private fun TextStyle.jakarta() = copy(fontFamily = JakartaSans)
+
+/**
+ * La escala de Material con Plus Jakarta Sans, solo para los componentes de Material que siguen en
+ * uso (diálogos, campos de texto, date picker). La UI propia usa [PredictaTypography].
+ */
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
+    displayLarge = Defaults.displayLarge.jakarta(),
+    displayMedium = Defaults.displayMedium.jakarta(),
+    displaySmall = Defaults.displaySmall.jakarta(),
+    headlineLarge = Defaults.headlineLarge.jakarta(),
+    headlineMedium = Defaults.headlineMedium.jakarta(),
+    headlineSmall = Defaults.headlineSmall.jakarta(),
+    titleLarge = Defaults.titleLarge.jakarta(),
+    titleMedium = Defaults.titleMedium.jakarta(),
+    titleSmall = Defaults.titleSmall.jakarta(),
+    bodyLarge = Defaults.bodyLarge.jakarta(),
+    bodyMedium = Defaults.bodyMedium.jakarta(),
+    bodySmall = Defaults.bodySmall.jakarta(),
+    labelLarge = Defaults.labelLarge.jakarta(),
+    labelMedium = Defaults.labelMedium.jakarta(),
+    labelSmall = Defaults.labelSmall.jakarta(),
 )
