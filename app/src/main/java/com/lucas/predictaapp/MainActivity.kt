@@ -40,6 +40,7 @@ import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
 import com.lucas.predictaapp.features.dashboard.components.EditExpenseSheet
 import com.lucas.predictaapp.features.onboarding.OnboardingScreen
+import com.lucas.predictaapp.features.profile.CaptureAccessPrompt
 import com.lucas.predictaapp.features.quickactions.ManualExpenseEntry
 import com.lucas.predictaapp.features.quickactions.QuickActionsSheet
 import com.lucas.predictaapp.ui.navigation.BottomNavigationBar
@@ -269,6 +270,8 @@ fun PredictaAppScaffold(onSignOut: () -> Unit = {}) {
     if (showManualEntry) {
         ManualExpenseEntry(onDone = { showManualEntry = false })
     }
+
+    CaptureAccessPrompt()
 
     editingExpense?.let { expense ->
         // El sheet arranca en el tipo de la categoría del movimiento (gasto o ingreso).
