@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,8 @@ import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.lucas.predictaapp.data.local.AppDatabase
+import com.lucas.predictaapp.data.local.AppSettings
+import com.lucas.predictaapp.data.local.ThemeMode
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.CategoryType
 import com.lucas.predictaapp.data.model.Expense
@@ -59,13 +62,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    // El splash queda hasta leer el tema elegido: si no, la app arranca un instante en el del sistema.
+    @Volatile private var themeLoaded = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        installSplashScreen().setKeepOnScreenCondition { !themeLoaded }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleLaunchIntent(intent)
+        val themeModes = AppSettings.themeMode(this)
         setContent {
-            PredictaTheme {
+            val mode by themeModes.collectAsStateWithLifecycle(initialValue = null)
+            val dark = when (mode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM, null -> isSystemInDarkTheme()
+            }
+            LaunchedEffect(mode) { if (mode != null) themeLoaded = true }
+            PredictaTheme(darkTheme = dark) {
                 PredictaRoot()
             }
         }

@@ -203,6 +203,8 @@ fun ProfileScreen(
             },
         )
 
+        AppearanceSection()
+
         ProfileMenuSection(
             title = "General",
             items = listOf(
