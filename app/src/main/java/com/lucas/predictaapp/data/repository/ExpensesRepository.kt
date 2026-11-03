@@ -1,6 +1,8 @@
 package com.lucas.predictaapp.data.repository
 
 import com.lucas.predictaapp.data.local.AppDatabase
+import com.lucas.predictaapp.data.local.CapturedCounterparty
+import com.lucas.predictaapp.data.local.RememberedCapture
 import com.lucas.predictaapp.data.local.ExpenseDao
 import com.lucas.predictaapp.data.local.Session
 import com.lucas.predictaapp.data.model.Expense
@@ -69,10 +71,26 @@ object ExpensesRepository {
     suspend fun topCategoriesSince(sinceMillis: Long, limit: Int): List<String> =
         dao.topCategoriesSince(sinceMillis, limit)
 
-    /** Recategoriza un gasto existente por nombre de categoría. false = el gasto ya no existe. */
-    suspend fun setCategory(id: Long, categoryName: String): Boolean {
+    /** Anota de qué destinatario salió una transferencia capturada (solo local). */
+    suspend fun rememberCapture(expenseId: Long, counterpartyKey: String, capturedAt: Long) =
+        dao.insertCapture(CapturedCounterparty(expenseId, counterpartyKey, capturedAt))
+
+    /** Cómo quedó la última transferencia a ese destinatario (nombre y categoría editados). */
+    suspend fun lastCaptureFor(counterpartyKey: String): RememberedCapture? = dao.lastCaptureFor(counterpartyKey)
+
+    /** Gastos que ya salieron de capturas de ese destinatario, aunque se hayan renombrado. */
+    suspend fun capturedIdsFor(counterpartyKey: String): List<Long> = dao.capturedIdsFor(counterpartyKey)
+
+    /**
+     * Recategoriza un gasto existente por nombre de categoría. false = el gasto ya no existe.
+     * Con [renameTo], si la categoría cambia también vuelve a ese nombre: el que tenía venía
+     * recordado junto con la categoría anterior ("Carnicería" no sirve para un regalo).
+     */
+    suspend fun setCategory(id: Long, categoryName: String, renameTo: String? = null): Boolean {
         val expense = dao.getById(id) ?: return false
-        update(expense.copy(categoryId = CategoryRepository.resolveId(categoryName, income = false)))
+        val categoryId = CategoryRepository.resolveId(categoryName, income = false)
+        val merchant = if (renameTo != null && categoryId != expense.categoryId) renameTo else expense.merchant
+        update(expense.copy(categoryId = categoryId, merchant = merchant))
         return true
     }
 

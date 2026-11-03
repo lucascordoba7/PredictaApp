@@ -37,7 +37,7 @@ class CaptureActionReceiver : BroadcastReceiver() {
                     }
                     ACTION_SET_CATEGORY -> {
                         val category = intent.getStringExtra(EXTRA_CATEGORY) ?: return@launch
-                        setCategory(context, expenseId, category)
+                        setCategory(context, expenseId, category, intent.getStringExtra(EXTRA_ORIGINAL_NAME))
                     }
                     ACTION_REPLY -> {
                         val answer = RemoteInput.getResultsFromIntent(intent)
@@ -46,7 +46,11 @@ class CaptureActionReceiver : BroadcastReceiver() {
                             CaptureNotifications.cancel(context, expenseId)
                             return@launch
                         }
-                        reply(context, expenseId, answer, intent.getStringExtra(EXTRA_COUNTERPARTY).orEmpty())
+                        reply(
+                            context, expenseId, answer,
+                            intent.getStringExtra(EXTRA_COUNTERPARTY).orEmpty(),
+                            intent.getStringExtra(EXTRA_ORIGINAL_NAME),
+                        )
                     }
                 }
             } finally {
@@ -55,12 +59,19 @@ class CaptureActionReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun setCategory(context: Context, expenseId: Long, category: String) {
-        val ok = ExpensesRepository.setCategory(expenseId, category)
+    /** [originalName]: el gasto se guardó con un nombre recordado; si cambia la categoría, vuelve a este. */
+    private suspend fun setCategory(context: Context, expenseId: Long, category: String, originalName: String?) {
+        val ok = ExpensesRepository.setCategory(expenseId, category, renameTo = originalName)
         CaptureNotifications.showResult(context, expenseId, if (ok) "Listo, quedó en $category" else "Ese gasto ya no existe")
     }
 
-    private suspend fun reply(context: Context, expenseId: Long, answer: String, counterparty: String) {
+    private suspend fun reply(
+        context: Context,
+        expenseId: Long,
+        answer: String,
+        counterparty: String,
+        originalName: String?,
+    ) {
         val categories = CategoryRepository.categories.first()
             .filter { it.type == CategoryType.EXPENSE }.map { it.name }
             .ifEmpty { ExpenseCategories.expenseNames }
@@ -71,7 +82,7 @@ class CaptureActionReceiver : BroadcastReceiver() {
             null
         }
         when (result) {
-            is PurposeAnswer.Category -> setCategory(context, expenseId, result.name)
+            is PurposeAnswer.Category -> setCategory(context, expenseId, result.name, originalName)
             PurposeAnswer.NotExpense -> {
                 ExpensesRepository.delete(expenseId)
                 CaptureNotifications.showResult(context, expenseId, "Listo, no lo cuento como gasto")
@@ -89,5 +100,6 @@ class CaptureActionReceiver : BroadcastReceiver() {
         const val EXTRA_EXPENSE_ID = "expense_id"
         const val EXTRA_CATEGORY = "category"
         const val EXTRA_COUNTERPARTY = "counterparty"
+        const val EXTRA_ORIGINAL_NAME = "original_name"
     }
 }

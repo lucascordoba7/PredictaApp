@@ -54,6 +54,9 @@ object CaptureNotifications {
      * Transferencia a una persona: el destinatario no dice en qué se fue la plata, así
      * que se pregunta. Ya quedó guardada en [savedCategory]; los botones la cambian y
      * "Responder" deja escribir el motivo para que lo clasifique la IA.
+     *
+     * [savedAs]: el nombre con que se guardó, si es el que el usuario le puso la última vez
+     * a este destinatario. Si elige otra categoría, el gasto vuelve al nombre del destinatario.
      */
     fun askPurpose(
         context: Context,
@@ -61,16 +64,26 @@ object CaptureNotifications {
         payment: DetectedPayment,
         savedCategory: String,
         suggestions: List<String>,
+        savedAs: String? = null,
     ) {
         val title = "Transferiste $${payment.amount.fmtArs()} a ${payment.counterparty}. ¿En qué fue?"
-        val body = "Lo guardé en $savedCategory. Tocá otra categoría o respondé, por ejemplo \"asado\" o \"no es gasto\"."
+        val saved = if (savedAs != null) {
+            "Lo guardé como $savedAs ($savedCategory), igual que la última vez."
+        } else {
+            "Lo guardé en $savedCategory."
+        }
+        val body = "$saved Tocá otra categoría o respondé, por ejemplo \"asado\" o \"no es gasto\"."
         val builder = base(context, title, body).setContentIntent(editIntent(context, expenseId))
+        val originalName: Intent.() -> Unit = {
+            if (savedAs != null) putExtra(CaptureActionReceiver.EXTRA_ORIGINAL_NAME, payment.counterparty)
+        }
 
         suggestions.take(2).forEachIndexed { i, category ->
             builder.addAction(
                 0, category,
                 broadcast(context, expenseId, CaptureActionReceiver.ACTION_SET_CATEGORY, slot = i + 1) {
                     putExtra(CaptureActionReceiver.EXTRA_CATEGORY, category)
+                    originalName()
                 },
             )
         }
@@ -79,7 +92,8 @@ object CaptureNotifications {
             context,
             0,
             receiverIntent(context, expenseId, CaptureActionReceiver.ACTION_REPLY, slot = 9)
-                .putExtra(CaptureActionReceiver.EXTRA_COUNTERPARTY, payment.counterparty),
+                .putExtra(CaptureActionReceiver.EXTRA_COUNTERPARTY, payment.counterparty)
+                .apply(originalName),
             // RemoteInput necesita un PendingIntent mutable para inyectar el texto.
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )

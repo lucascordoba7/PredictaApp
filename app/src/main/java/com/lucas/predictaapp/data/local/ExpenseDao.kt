@@ -79,4 +79,22 @@ interface ExpenseDao {
             "AND dateMillis >= :fromMillis AND dateMillis < :toMillis LIMIT 1",
     )
     suspend fun findDuplicate(merchant: String, amount: Int, fromMillis: Long, toMillis: Long): Expense?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCapture(capture: CapturedCounterparty)
+
+    /**
+     * Nombre y categoría actuales de la última captura de ese destinatario. Una que quedó en
+     * "Otros" (el usuario no contestó) solo cuenta si no hay otra.
+     */
+    @Query(
+        "SELECT e.merchant AS merchant, c.name AS category FROM captured_counterparties k " +
+            "JOIN expenses e ON e.id = k.expenseId JOIN categories c ON c.id = e.categoryId " +
+            "WHERE k.counterpartyKey = :key AND c.type = 'EXPENSE' " +
+            "ORDER BY CASE WHEN c.name = 'Otros' THEN 1 ELSE 0 END, k.capturedAt DESC LIMIT 1",
+    )
+    suspend fun lastCaptureFor(key: String): RememberedCapture?
+
+    @Query("SELECT expenseId FROM captured_counterparties WHERE counterpartyKey = :key")
+    suspend fun capturedIdsFor(key: String): List<Long>
 }

@@ -13,8 +13,11 @@ import com.lucas.predictaapp.data.model.Notification
 import com.lucas.predictaapp.data.model.Subscription
 
 @Database(
-    entities = [Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class],
-    version = 12,
+    entities = [
+        Expense::class, Subscription::class, Notification::class, Category::class, FixedExpense::class,
+        CapturedCounterparty::class,
+    ],
+    version = 13,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -82,6 +85,22 @@ abstract class AppDatabase : RoomDatabase() {
                 .forEach { table ->
                     db.execSQL("ALTER TABLE $table ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
                 }
+        }
+
+        private val MIGRATION_12_13 = Migration(12, 13) { db ->
+            // Destinatario original de cada transferencia capturada (ver CapturedCounterparty).
+            db.execSQL(
+                """CREATE TABLE IF NOT EXISTS captured_counterparties (
+                    expenseId INTEGER NOT NULL,
+                    counterpartyKey TEXT NOT NULL,
+                    capturedAt INTEGER NOT NULL,
+                    PRIMARY KEY(expenseId)
+                )"""
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_captured_counterparties_counterpartyKey " +
+                    "ON captured_counterparties (counterpartyKey)"
+            )
         }
 
         private val MIGRATION_9_10 = Migration(9, 10) { db ->
@@ -208,7 +227,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                        MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
+                        MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                     )
                     // El seed de categorías ya no vive acá: lo centraliza
                     // CategoryRepository.bootstrap() tras el pull de Supabase, así evitamos

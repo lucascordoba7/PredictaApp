@@ -9,6 +9,7 @@ import com.lucas.predictaapp.BuildConfig
 import com.lucas.predictaapp.data.local.Session
 import com.lucas.predictaapp.data.local.UserPreferencesRepository
 import com.lucas.predictaapp.data.model.CategoryType
+import com.lucas.predictaapp.data.model.Expense
 import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.ExpenseSource
 import com.lucas.predictaapp.data.repository.CategoryRepository
@@ -73,19 +74,23 @@ object PaymentCapture {
             CaptureOrigin.NOTIFICATION -> ExpenseSource.NOTIFICATION
             CaptureOrigin.SCREEN -> ExpenseSource.SCREEN
         }
-        findDuplicate(payment, postTime, source)?.let {
+        val key = counterpartyKey(payment.counterparty)
+        findDuplicate(payment, key, postTime, source)?.let {
             if (BuildConfig.DEBUG) Log.d(TAG, "Duplicado de #${it.id} (${it.merchant}), se ignora")
             return@withLock
         }
 
         // Transferencia a una persona: se pregunta en qué fue. Se guarda igual con la mejor
         // categoría disponible para que el gasto no se pierda si el usuario no contesta.
+        // Si ya se le transfirió, se repite cómo quedó la última vez (nombre y categoría).
         val asksPurpose = payment.toPerson && !payment.incoming
-        val suggestions = if (asksPurpose) suggestCategories(payment, postTime) else emptyList()
+        val remembered = if (asksPurpose) ExpensesRepository.lastCaptureFor(key) else null
+        val suggestions = if (asksPurpose) suggestCategories(payment, postTime, remembered?.category) else emptyList()
         val category = suggestions.firstOrNull() ?: payment.category
+        val merchant = remembered?.merchant ?: payment.counterparty
 
         val id = ExpensesRepository.addByName(
-            merchant = payment.counterparty,
+            merchant = merchant,
             categoryName = category,
             amount = payment.amount,
             dateMillis = postTime,
@@ -93,19 +98,24 @@ object PaymentCapture {
             source = source,
         )
         if (asksPurpose) {
-            CaptureNotifications.askPurpose(context, id, payment, category, suggestions.drop(1))
+            ExpensesRepository.rememberCapture(id, key, postTime)
+            CaptureNotifications.askPurpose(
+                context, id, payment, category, suggestions.drop(1),
+                savedAs = merchant.takeIf { it != payment.counterparty },
+            )
         } else {
             CaptureNotifications.showCaptured(context, id, payment, category, appName)
         }
     }
 
     /**
-     * Destinatario conocido → las categorías que ya se usaron con él (la primera se guarda).
-     * Nuevo → lo que adivinó la IA y, de relleno, las categorías más usadas últimamente.
-     * La primera de la lista es la que se guarda; las siguientes van como botones.
+     * Destinatario conocido → la categoría de su última transferencia ([remembered]) y las
+     * que ya se usaron con él. Nuevo → lo que adivinó la IA y, de relleno, las categorías más
+     * usadas últimamente. La primera de la lista es la que se guarda; las siguientes van como botones.
      */
-    private suspend fun suggestCategories(payment: DetectedPayment, now: Long): List<String> {
-        val known = ExpensesRepository.topCategoriesFor(payment.counterparty, limit = 3)
+    private suspend fun suggestCategories(payment: DetectedPayment, now: Long, remembered: String?): List<String> {
+        val known = (listOfNotNull(remembered) + ExpensesRepository.topCategoriesFor(payment.counterparty, limit = 3))
+            .distinct()
         val guess = payment.category.takeIf { it != "Otros" }
         val frequent = ExpensesRepository.topCategoriesSince(now - FREQUENT_WINDOW_MS, limit = 3)
         val ordered = (known + listOfNotNull(guess) + frequent).distinct()
@@ -117,21 +127,29 @@ object PaymentCapture {
      * Mismo monto y (a) nombre parecido dentro de 3 h: lo cargó a mano o ya se capturó; o
      * (b) otra vía (aviso vs. pantalla, MP vs. banco) en pocos minutos: la misma operación
      * con el nombre escrito distinto. Mismo monto a otra persona por la misma vía no es duplicado.
+     * El nombre se compara también contra el destinatario original: el gasto pudo renombrarse.
      */
-    private suspend fun findDuplicate(payment: DetectedPayment, postTime: Long, source: ExpenseSource) =
-        ExpensesRepository.sameAmountNear(payment.amount, postTime, DUPLICATE_WINDOW_MS).firstOrNull {
-            namesOverlap(it.merchant, payment.counterparty) ||
+    private suspend fun findDuplicate(payment: DetectedPayment, key: String, postTime: Long, source: ExpenseSource): Expense? {
+        val sameRecipient = ExpensesRepository.capturedIdsFor(key).toSet()
+        return ExpensesRepository.sameAmountNear(payment.amount, postTime, DUPLICATE_WINDOW_MS).firstOrNull {
+            it.id in sameRecipient ||
+                namesOverlap(it.merchant, payment.counterparty) ||
                 (it.source != source && abs(it.dateMillis - postTime) < CROSS_CHANNEL_WINDOW_MS)
         }
+    }
+
+    private fun words(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}"), "")
+        .split(Regex("[^a-z0-9]+"))
+        .filter { it.isNotEmpty() }
+
+    /** "Adam Gonzalo Javier" y "Gonzalo Javier Adam" → "adam gonzalo javier". */
+    private fun counterpartyKey(name: String) = words(name).sorted().joinToString(" ")
 
     /** "Cordoba Lucas Emmanuel" ~ "Lucas Emmanuel", "Café" ~ "Cafe Martinez". */
     private fun namesOverlap(a: String, b: String): Boolean {
-        fun words(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)
-            .replace(Regex("\\p{M}"), "")
-            .split(Regex("[^a-z0-9]+"))
-            .filter { it.length >= 3 }
-            .toSet()
-        return (words(a) intersect words(b)).isNotEmpty()
+        fun significant(s: String) = words(s).filter { it.length >= 3 }.toSet()
+        return (significant(a) intersect significant(b)).isNotEmpty()
     }
 
     /** Reintenta ante 429 o red caída: la notificación no vuelve, si falla se pierde el gasto. */
