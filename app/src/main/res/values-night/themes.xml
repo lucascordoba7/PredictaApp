@@ -10,7 +10,7 @@
     <style name="Theme.PredictaApp.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#1A1310</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-        <item name="windowSplashScreenIconBackgroundColor">#0B0B0D</item>
+        <item name="windowSplashScreenIconBackgroundColor">#8A2A0C</item>
         <item name="postSplashScreenTheme">@style/Theme.PredictaApp</item>
     </style>
 </resources>

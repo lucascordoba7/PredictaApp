@@ -98,7 +98,7 @@ import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import com.lucas.predictaapp.ui.components.ChoiceChip
-import com.lucas.predictaapp.ui.components.DiceMark
+import com.lucas.predictaapp.ui.components.SunMark
 import com.lucas.predictaapp.ui.components.GlyphBadge
 import com.lucas.predictaapp.ui.components.HeroCard
 import com.lucas.predictaapp.ui.components.Kicker
@@ -458,7 +458,7 @@ private fun TopBar() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        DiceMark(size = 42.dp)
+        SunMark(size = 42.dp)
         Column {
             Text("Predicta", style = PredictaTypography.heading, color = PredictaColors.ink)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

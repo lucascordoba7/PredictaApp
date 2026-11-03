@@ -68,7 +68,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.PieChart
-import com.lucas.predictaapp.ui.components.DiceMark
+import com.lucas.predictaapp.ui.components.SunMark
 import com.lucas.predictaapp.ui.components.GlyphBadge
 import com.lucas.predictaapp.ui.components.HeaderIconButton
 import com.lucas.predictaapp.ui.components.PredictaCard
@@ -202,7 +202,7 @@ private fun WelcomeContent(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth(0.85f),
         ) {
-            DiceMark(size = 56.dp)
+            SunMark(size = 56.dp)
             Column {
                 Text(
                     text = "TUS GASTOS, CLAROS",
@@ -347,7 +347,7 @@ private fun RegisterContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DiceMark(size = 36.dp)
+            SunMark(size = 36.dp)
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
 
@@ -589,7 +589,7 @@ private fun SignInContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
         ) {
-            DiceMark(size = 36.dp)
+            SunMark(size = 36.dp)
         }
         Spacer(Modifier.height(PredictaDimensions.Spacing.base))
 

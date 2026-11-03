@@ -1,5 +1,6 @@
 package com.lucas.predictaapp.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -164,23 +168,39 @@ fun StatusPill(text: String, container: Color, content: Color, modifier: Modifie
     )
 }
 
-/** El dado de la marca: cuadrado ámbar con los cinco puntos. */
+/**
+ * La marca: medio sol ámbar sobre el horizonte y su reflejo en tres líneas, sobre el
+ * degradé de la hero. Mismo dibujo que el ícono de la app (grilla de 108, como el adaptive icon).
+ */
 @Composable
-fun DiceMark(modifier: Modifier = Modifier, size: Dp = 34.dp) {
-    val dot = size * 0.15f
-    val pad = size * 0.2f
-    Box(
+fun SunMark(modifier: Modifier = Modifier, size: Dp = 34.dp) {
+    val sun = PredictaColors.honey
+    Canvas(
         modifier = modifier
             .size(size)
-            .clip(RoundedCornerShape(size * 0.32f))
-            .background(PredictaColors.honey)
-            .padding(pad),
+            .clip(RoundedCornerShape(size * 0.28f))
+            .background(PredictaColors.heroBrush),
     ) {
-        val pips = listOf(
-            Alignment.TopStart, Alignment.TopEnd, Alignment.Center, Alignment.BottomStart, Alignment.BottomEnd,
+        val u = this.size.width / 108f
+        drawArc(
+            color = sun,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = true,
+            topLeft = Offset(31 * u, 28 * u),
+            size = Size(46 * u, 46 * u),
         )
-        pips.forEach { align ->
-            Box(Modifier.align(align).size(dot).clip(CircleShape).background(PredictaColors.onHoney))
-        }
+        // (desde, hasta, alfa): el reflejo se acorta y se apaga hacia abajo.
+        listOf(Triple(31.5f, 76.5f, 0.92f), Triple(39.5f, 68.5f, 0.6f), Triple(47.5f, 60.5f, 0.35f))
+            .forEachIndexed { i, (from, to, alpha) ->
+                val y = (59.5f + 9f * i) * u
+                drawLine(
+                    color = Color.White.copy(alpha = alpha),
+                    start = Offset(from * u, y),
+                    end = Offset(to * u, y),
+                    strokeWidth = 5 * u,
+                    cap = StrokeCap.Round,
+                )
+            }
     }
 }

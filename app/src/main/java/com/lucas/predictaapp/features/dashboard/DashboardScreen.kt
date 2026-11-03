@@ -68,7 +68,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.sp
 import com.lucas.predictaapp.ui.components.DeleteExpenseDialog
-import com.lucas.predictaapp.ui.components.DiceMark
+import com.lucas.predictaapp.ui.components.SunMark
 import com.lucas.predictaapp.ui.components.Kicker
 import com.lucas.predictaapp.ui.components.PredictaCard
 import com.lucas.predictaapp.ui.components.PredictaPullRefresh
@@ -316,7 +316,7 @@ private fun TopBar(hasUnread: Boolean, onNotificationsClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DiceMark(size = 34.dp)
+        SunMark(size = 34.dp)
         Spacer(Modifier.width(10.dp))
         Text(
             text = "predicta",
