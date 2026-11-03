@@ -4,6 +4,7 @@ import com.lucas.predictaapp.data.remote.ApiProvider
 import com.lucas.predictaapp.data.remote.ChatCompletionRequest
 import com.lucas.predictaapp.data.remote.ChatMessage
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
@@ -115,6 +116,14 @@ Un solo JSON, sin texto extra.
 object PaymentTextParser {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+    /** El modelo a veces envuelve el JSON en ```json o le agrega texto: se toma de { a }. */
+    private fun parseObject(raw: String): JsonObject? {
+        val start = raw.indexOf('{')
+        val end = raw.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        return json.parseToJsonElement(raw.substring(start, end + 1)).jsonObject
+    }
+
     /** null = el texto no es un movimiento de plata (o no se pudo interpretar). */
     suspend fun parse(
         origin: CaptureOrigin,
@@ -138,7 +147,7 @@ object PaymentTextParser {
             ),
         )
         val raw = response.choices.firstOrNull()?.message?.content ?: return null
-        val obj = json.parseToJsonElement(raw.trim()).jsonObject
+        val obj = parseObject(raw) ?: return null
         if (obj["kind"]?.jsonPrimitive?.contentOrNull != "payment") return null
 
         val amount = obj["amount"]?.jsonPrimitive?.doubleOrNull?.roundToInt() ?: return null
@@ -172,7 +181,7 @@ object PaymentTextParser {
             ),
         )
         val raw = response.choices.firstOrNull()?.message?.content ?: return null
-        val obj = json.parseToJsonElement(raw.trim()).jsonObject
+        val obj = parseObject(raw) ?: return null
         return when (obj["kind"]?.jsonPrimitive?.contentOrNull) {
             "not_expense" -> PurposeAnswer.NotExpense
             "category" -> obj["category"]?.jsonPrimitive?.contentOrNull

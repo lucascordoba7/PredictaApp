@@ -14,6 +14,7 @@ import com.lucas.predictaapp.data.model.ExpenseCategories
 import com.lucas.predictaapp.data.model.ExpenseSource
 import com.lucas.predictaapp.data.repository.CategoryRepository
 import com.lucas.predictaapp.data.repository.ExpensesRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -53,11 +54,16 @@ object PaymentCapture {
         // Android re-postea la misma notificación al actualizarla, y una pantalla se vuelve a
         // mostrar al navegar: mismo texto = ya procesado.
         val fingerprint = "$packageName|$text".hashCode().toString()
-        if (alreadySeen(context, fingerprint)) return@withLock
-        markSeen(context, fingerprint, postTime)
+        if (alreadySeen(context, fingerprint)) {
+            if (BuildConfig.DEBUG) Log.d(TAG, "Ya procesado, se ignora")
+            return@withLock
+        }
 
         // El listener puede despertar el proceso antes de que PredictaApp restaure la sesión.
-        if (!Session.isActive && !UserPreferencesRepository.restoreSession(context)) return@withLock
+        if (!Session.isActive && !UserPreferencesRepository.restoreSession(context)) {
+            Log.w(TAG, "Sin sesión: no se puede guardar el pago")
+            return@withLock
+        }
 
         val appName = PaymentApps.displayName(packageName)
         if (BuildConfig.DEBUG) Log.d(TAG, "[$appName/$origin] $text")
@@ -68,7 +74,14 @@ object PaymentCapture {
         val incomeNames = categories.filter { it.type == CategoryType.INCOME }.map { it.name }
             .ifEmpty { listOf("Otros ingresos") }
 
-        val payment = parseWithRetry(origin, appName, text, expenseNames, incomeNames) ?: return@withLock
+        // Solo se marca como visto si la IA contestó: si falló la red o la API, que el próximo
+        // evento de la misma pantalla/notificación lo pueda reintentar en vez de perderlo.
+        val parsed = parseWithRetry(origin, appName, text, expenseNames, incomeNames) ?: return@withLock
+        markSeen(context, fingerprint, postTime)
+        val payment = parsed.getOrNull() ?: run {
+            if (BuildConfig.DEBUG) Log.d(TAG, "La IA no lo tomó como pago")
+            return@withLock
+        }
 
         val source = when (origin) {
             CaptureOrigin.NOTIFICATION -> ExpenseSource.NOTIFICATION
@@ -152,18 +165,23 @@ object PaymentCapture {
         return (significant(a) intersect significant(b)).isNotEmpty()
     }
 
-    /** Reintenta ante 429 o red caída: la notificación no vuelve, si falla se pierde el gasto. */
+    /**
+     * Reintenta ante 429 o red caída. null = fallaron todos los intentos; un Result con
+     * null adentro = la IA contestó que no es un pago.
+     */
     private suspend fun parseWithRetry(
         origin: CaptureOrigin,
         appName: String,
         text: String,
         expenseNames: List<String>,
         incomeNames: List<String>,
-    ): DetectedPayment? {
+    ): Result<DetectedPayment?>? {
         RETRY_DELAYS_MS.forEachIndexed { attempt, wait ->
             delay(wait)
             try {
-                return PaymentTextParser.parse(origin, appName, text, expenseNames, incomeNames)
+                return Result.success(PaymentTextParser.parse(origin, appName, text, expenseNames, incomeNames))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Intento ${attempt + 1} fallido interpretando $appName", e)
             }

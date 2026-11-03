@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Rect
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -25,6 +26,10 @@ private const val TAG = "PaymentScreenReader"
 // Las pantallas se arman de a pedazos (MP usa webviews): se lee cuando dejan de cambiar.
 private const val SETTLE_MS = 800L
 private const val LATE_READ_MS = 2500L
+
+// Tope de espera: pantallas con animaciones o banners que rotan disparan eventos sin parar,
+// y sin tope el debounce se reiniciaba siempre y la pantalla nunca se leía.
+private const val MAX_WAIT_MS = 2000L
 private const val COOLDOWN_MS = 2 * 60 * 1000L
 private const val MAX_NODES = 1500
 private const val MAX_CHARS = 3000
@@ -68,6 +73,7 @@ private const val MAX_REVIEW_PIECES = 40
 class PaymentScreenReader : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pending: Job? = null
+    private var burstStartedAt = 0L
     private var lastSignature: String? = null
     private var lastSignatureAt = 0L
 
@@ -80,6 +86,11 @@ class PaymentScreenReader : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
         if (!PaymentApps.isPaymentApp(pkg)) return
+        val now = SystemClock.uptimeMillis()
+        val waiting = pending?.isActive == true
+        // Si la ráfaga de eventos ya lleva el tope, se deja correr la lectura pendiente.
+        if (waiting && now - burstStartedAt >= MAX_WAIT_MS) return
+        if (!waiting) burstStartedAt = now
         pending?.cancel()
         pending = scope.launch {
             delay(SETTLE_MS)
@@ -100,6 +111,7 @@ class PaymentScreenReader : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        isRunning = true
         if (BuildConfig.DEBUG) {
             ContextCompat.registerReceiver(
                 this, dumpReceiver, IntentFilter(ACTION_DEBUG_DUMP), ContextCompat.RECEIVER_EXPORTED,
@@ -108,6 +120,7 @@ class PaymentScreenReader : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         if (BuildConfig.DEBUG) runCatching { unregisterReceiver(dumpReceiver) }
         scope.cancel()
         super.onDestroy()
@@ -235,6 +248,15 @@ class PaymentScreenReader : AccessibilityService() {
 
     companion object {
         private const val ACTION_DEBUG_DUMP = "com.lucas.predictaapp.DEBUG_DUMP_SCREEN"
+
+        /**
+         * true = el sistema efectivamente conectó el servicio en este proceso. Después de
+         * reinstalar o forzar la detención, Ajustes puede mostrarlo activado sin que Android lo
+         * esté corriendo: [isEnabled] da true y esto false.
+         */
+        @Volatile
+        var isRunning = false
+            private set
 
         fun isEnabled(context: Context): Boolean {
             val enabled = Settings.Secure.getString(

@@ -1,6 +1,7 @@
 package com.lucas.predictaapp.capture
 
 import android.app.Notification
+import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -30,7 +31,18 @@ class PaymentNotificationListener : NotificationListenerService() {
             ) }
     }
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        isConnected = true
+    }
+
+    override fun onListenerDisconnected() {
+        isConnected = false
+        super.onListenerDisconnected()
+    }
+
     override fun onDestroy() {
+        isConnected = false
         scope.cancel()
         super.onDestroy()
     }
@@ -45,6 +57,20 @@ class PaymentNotificationListener : NotificationListenerService() {
     }
 
     companion object {
+        /** true = el sistema conectó el listener en este proceso (ver [PaymentScreenReader.isRunning]). */
+        @Volatile
+        var isConnected = false
+            private set
+
+        /**
+         * Acceso dado pero listener desconectado (pasa tras reinstalar): se le pide al sistema
+         * que lo vuelva a conectar. A diferencia de accesibilidad, esto no requiere al usuario.
+         */
+        fun rebindIfStuck(context: Context) {
+            if (isConnected || !isEnabled(context)) return
+            requestRebind(ComponentName(context, PaymentNotificationListener::class.java))
+        }
+
         fun isEnabled(context: Context): Boolean =
             context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
     }
